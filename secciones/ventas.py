@@ -206,4 +206,76 @@ def mostrar(config):
         height=480
     )
 
+    # --------------------------------------------------
+    # VENTA POR SUCURSAL VS META (MES A MES)
+    # --------------------------------------------------
+
+    st.subheader("🏬 Venta por sucursal vs meta (Año fiscal JD)")
+
+    #DATOS
+
+    sucursal_df = (
+        df_meta_fiscal
+        .groupby(
+            ["sucursal", "orden_mes_fiscal", "periodo_jd"],
+            as_index=False
+        )
+        .agg({
+            "venta_real": "sum",
+            "meta": "sum"
+        })
+        .sort_values(["sucursal", "orden_mes_fiscal"])
+    )
+
+    #GRAFICO
+
+    bars = (
+        alt.Chart(sucursal_df)
+        .mark_bar(opacity=0.75)
+        .encode(
+            x=alt.X(
+                "periodo_jd:N",
+                title="Periodo",
+                sort=list(mensual["periodo_jd"]),
+                axis=alt.Axis(labelAngle=0)
+            ),
+            y=alt.Y(
+                "venta_real:Q",
+                title="Venta ($)"
+            ),
+            tooltip=[
+                alt.Tooltip("sucursal:N", title="Sucursal"),
+                alt.Tooltip("periodo_jd:N", title="Periodo"),
+                alt.Tooltip("venta_real:Q", title="Venta", format=",.2f"),
+                alt.Tooltip("meta:Q", title="Meta", format=",.2f")
+            ]
+        )
+    )
+
+    line = (
+        alt.Chart(sucursal_df)
+        .mark_line(color="black", strokeDash=[4, 4])
+        .encode(
+            x="periodo_jd:N",
+            y="meta:Q"
+        )
+    )
+
+    chart = (
+        alt.layer(bars, line)
+        .facet(
+            facet=alt.Facet(
+                "sucursal:N",
+                title=None,
+                columns=3
+            )
+        )
+        .resolve_scale(y="independent")
+        .properties(height=180)
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
+
+
 
