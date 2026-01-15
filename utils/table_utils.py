@@ -40,11 +40,21 @@ def mostrar_tabla_normal(
     columnas_fijas = columnas_fijas or []
     columnas_numericas = columnas_numericas or []
 
+    # ---------------------------------
+    # ALTURA DINÁMICA (evita espacio blanco)
+    # ---------------------------------
+    row_height = 35
+    header_height = 40
+    calculated_height = min(
+        header_height + row_height * (len(df) + 1),
+        height
+    )
+
     gb = GridOptionsBuilder.from_dataframe(df)
 
-    # ----------------------------
+    # ---------------------------------
     # CONFIGURACIÓN GENERAL
-    # ----------------------------
+    # ---------------------------------
     gb.configure_default_column(
         resizable=True,
         sortable=True,
@@ -53,9 +63,9 @@ def mostrar_tabla_normal(
         wrapText=False
     )
 
-    # ----------------------------
+    # ---------------------------------
     # COLUMNAS FIJAS (LEFT)
-    # ----------------------------
+    # ---------------------------------
     for i, col in enumerate(columnas_fijas):
         cell_class = []
 
@@ -73,9 +83,9 @@ def mostrar_tabla_normal(
             }
         )
 
-    # ----------------------------
+    # ---------------------------------
     # COLUMNAS NUMÉRICAS
-    # ----------------------------
+    # ---------------------------------
     for col in columnas_numericas:
         gb.configure_column(
             col,
@@ -85,9 +95,9 @@ def mostrar_tabla_normal(
             minWidth=130
         )
 
-    # ----------------------------
+    # ---------------------------------
     # COLUMNA TOTAL (RIGHT)
-    # ----------------------------
+    # ---------------------------------
     if columna_total and columna_total in df.columns:
         gb.configure_column(
             columna_total,
@@ -101,9 +111,9 @@ def mostrar_tabla_normal(
             minWidth=160
         )
 
-    # ----------------------------
+    # ---------------------------------
     # OPCIONES DEL GRID
-    # ----------------------------
+    # ---------------------------------
     grid_options = gb.build()
     grid_options.update({
         "domLayout": "normal",
@@ -112,17 +122,17 @@ def mostrar_tabla_normal(
         "alwaysShowVerticalScroll": False
     })
 
-    # ----------------------------
+    # ---------------------------------
     # RENDER
-    # ----------------------------
+    # ---------------------------------
     AgGrid(
         df,
         gridOptions=grid_options,
         theme=AgGridTheme.ALPINE,
-        height=height,
+        height=calculated_height,
         use_container_width=True,
-        fit_columns_on_grid_load=True,
-        columns_auto_size_mode=ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
+        fit_columns_on_grid_load=False,  # 👈 CLAVE
+        columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS,  # 👈 CLAVE
         allow_unsafe_jscode=True
     )
 
