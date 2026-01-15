@@ -1,0 +1,13 @@
+streamlit
+pandas
+pymysql
+plotly
+matplotlib
+seaborn
+requests
+xlsxwriter
+streamlit-aggrid
+babel
+calplot
+streamlit-authenticator==0.2.2
+PyYAML==6.0.1

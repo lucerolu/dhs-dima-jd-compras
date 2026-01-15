@@ -1,0 +1,86 @@
+# dashboard.py
+
+import streamlit as st
+import streamlit_authenticator as stauth
+
+# ------------------- IMPORTS PROPIOS -------------------
+from utils.config import cargar_config
+from utils.api_utils import mostrar_fecha_actualizacion
+
+# Secciones
+from secciones import compras, ventas, clientes
+
+# -----------------------------------------------------
+# CONFIGURACIÓN DE LA PÁGINA
+# -----------------------------------------------------
+st.set_page_config(
+    page_title="Dashboard Refacciones",
+    layout="wide"
+)
+
+# -----------------------------------------------------
+# AUTENTICACIÓN
+# -----------------------------------------------------
+auth_config = dict(st.secrets["auth"])
+
+credentials = {
+    "usernames": {
+        k: dict(v) for k, v in auth_config["credentials"]["usernames"].items()
+    }
+}
+
+authenticator = stauth.Authenticate(
+    credentials,
+    auth_config["cookie"]["name"],
+    auth_config["cookie"]["key"],
+    auth_config["cookie"]["expiry_days"],
+    auth_config.get("preauthorized", {}).get("emails", [])
+)
+
+name, authentication_status, username = authenticator.login(
+    "Iniciar sesión",
+    "main"
+)
+
+# -----------------------------------------------------
+# APP PRINCIPAL
+# -----------------------------------------------------
+if authentication_status is True:
+    st.session_state["user_name"] = name
+    config = cargar_config()
+
+    # ------------------- SIDEBAR -------------------
+    with st.sidebar:
+        st.markdown(f"👋 **Bienvenida, {name}**")
+
+        opcion = st.selectbox(
+            "Selecciona una vista",
+            [
+                "Compras vs Meta",
+                "Ventas",
+                "Clientes / Ubicación"
+            ]
+        )
+
+        st.markdown("---")
+        authenticator.logout("Cerrar sesión", "sidebar")
+
+        st.markdown("---")
+        mostrar_fecha_actualizacion()
+
+    # ------------------- CONTENIDO PRINCIPAL -------------------
+    if opcion == "Compras vs Meta":
+        compras.mostrar(config)
+
+    elif opcion == "Ventas":
+        ventas.mostrar(config)
+
+    elif opcion == "Clientes / Ubicación":
+        clientes.mostrar(config)
+
+elif authentication_status is False:
+    st.error("❌ Usuario o contraseña incorrectos")
+
+elif authentication_status is None:
+    st.info("🔐 Ingresa tus credenciales para continuar")
+
