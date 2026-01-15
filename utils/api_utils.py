@@ -1,36 +1,71 @@
+# utils/api_utils.py
+
 import requests
 import pandas as pd
 import streamlit as st
 from datetime import datetime
 from babel.dates import format_datetime
 
-# Tokens y base URL desde secrets
-API_TOKEN = st.secrets["api"]["API_TOKEN"]
-API_BASE = st.secrets["api"]["API_BASE"]
 
-@st.cache_data(ttl=300)
-def obtener_datos_api():
-    """Obtiene los datos principales desde la API y regresa un DataFrame."""
-    url = f"{API_BASE}/datos"
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+# =========================================================
+# FUNCIÓN PARA OBTENER HEADERS (SECRETS SEGUROS)
+# =========================================================
+def _get_api_config():
+    api_secrets = st.secrets["api"]
+
+    return {
+        "API_BASE": api_secrets["API_BASE_COMPRAS_API"],
+        "HEADERS": {
+            "X-API-Key": api_secrets["API_TOKEN_COMPRAS_API"]
+        },
+        "API_BASE_LEGACY": api_secrets["API_BASE"],
+        "API_TOKEN_LEGACY": api_secrets["API_TOKEN"],
+    }
+
+
+# =========================================================
+# FUNCIÓN GENÉRICA PARA OBTENER CUALQUIER VISTA
+# =========================================================
+@st.cache_data(ttl=300, show_spinner="Cargando datos...")
+def obtener_vista(nombre_vista: str) -> pd.DataFrame:
+    config = _get_api_config()
+    url = f"{config['API_BASE']}/api/view/{nombre_vista}"
+
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(
+            url,
+            headers=config["HEADERS"],
+            timeout=60
+        )
         response.raise_for_status()
         data = response.json()
+
+        if not data:
+            return pd.DataFrame()
+
         return pd.DataFrame(data)
+
     except Exception as e:
-        st.error(f"Error al obtener datos de la API: {e}")
+        st.error(f"❌ Error al cargar la vista {nombre_vista}: {e}")
         return pd.DataFrame()
 
 
+# =========================================================
+# FECHA DE ACTUALIZACIÓN (API LEGACY)
+# =========================================================
 def mostrar_fecha_actualizacion():
-    """Muestra en pantalla la última fecha de actualización obtenida de la API."""
-    url = f"{API_BASE}/ultima_actualizacion"
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    config = _get_api_config()
+
+    url = f"{config['API_BASE_LEGACY']}/ultima_actualizacion"
+    headers = {
+        "Authorization": f"Bearer {config['API_TOKEN_LEGACY']}"
+    }
+
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         data = response.json()
+
         fecha_dt = datetime.fromisoformat(data["fecha"])
 
         fecha_formateada = format_datetime(
@@ -40,11 +75,19 @@ def mostrar_fecha_actualizacion():
         )
 
         st.markdown(
-            f'<p style="background-color:#DFF2BF; color:#4F8A10; padding:10px; border-radius:5px;">'
-            f'🕒 <b>Última actualización de datos:</b> {fecha_formateada}<br>'
-            f'📋 <i>{data["descripcion"]}</i>'
-            f'</p>',
+            f"""
+            <div style="background-color:#DFF2BF;
+                        color:#4F8A10;
+                        padding:10px;
+                        border-radius:5px;
+                        margin-bottom:10px;">
+                🕒 <b>Última actualización de datos:</b> {fecha_formateada}<br>
+                📋 <i>{data.get("descripcion", "")}</i>
+            </div>
+            """,
             unsafe_allow_html=True
         )
-    except Exception as e:
-        st.error(f"Error al obtener la última actualización: {e}")
+
+    except Exception:
+        st.warning("No se pudo obtener la fecha de actualización")
+
