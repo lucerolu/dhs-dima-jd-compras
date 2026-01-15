@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 
 from utils.api_utils import obtener_vista
-from utils.table_utils import mostrar_tabla_aggrid
+from utils.table_utils import mostrar_tabla_normal
 
 
 def mostrar(config):
@@ -103,7 +103,7 @@ def mostrar(config):
 
     st.subheader("📊 Ventas mes a mes (Año fiscal JD)")
 
-    mostrar_tabla_aggrid(
+    mostrar_tabla_normal(
         df=tabla,
         columnas_fijas=["Periodo"],
         columnas_numericas=["Venta", "% Variación"],
