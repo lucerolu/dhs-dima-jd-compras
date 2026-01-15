@@ -2,6 +2,7 @@
 
 import streamlit as st
 import pandas as pd
+import altair as alt
 
 from utils.api_utils import obtener_vista
 from utils.table_utils import mostrar_tabla_normal
@@ -75,12 +76,14 @@ def mostrar(config):
     ).where(meta_mensual["meta"] > 0)
 
     mensual = mensual.merge(
-        meta_mensual[["periodo_jd", "% Cumplimiento Meta"]],
+        meta_mensual[[
+            "periodo_jd",
+            "meta",
+            "% Cumplimiento Meta"
+        ]],
         on="periodo_jd",
         how="left"
     )
-
-
 
     # --------------------------------------------------
     # KPIs
@@ -118,6 +121,62 @@ def mostrar(config):
     )
 
     st.markdown("---")
+
+    # --------------------------------------------------
+    # Gráfico de tabla y meta 
+    # --------------------------------------------------
+
+    st.subheader("📈 Venta vs Meta por mes (Año fiscal JD)")
+
+    grafica_df = mensual[[
+        "periodo_jd",
+        "venta_real",
+        "meta",
+        "% Cumplimiento Meta"
+    ]].dropna(subset=["meta"])
+
+    grafica_long = grafica_df.melt(
+        id_vars=["periodo_jd", "% Cumplimiento Meta"],
+        value_vars=["venta_real", "meta"],
+        var_name="Tipo",
+        value_name="Monto"
+    )
+
+    grafica_long["Tipo"] = grafica_long["Tipo"].map({
+        "venta_real": "Venta real",
+        "meta": "Meta"
+    })
+
+    chart = (
+        alt.Chart(grafica_long)
+        .mark_bar()
+        .encode(
+            x=alt.X(
+                "periodo_jd:N",
+                title="Periodo",
+                sort=list(mensual["periodo_jd"])
+            ),
+            xOffset="Tipo:N",
+            y=alt.Y(
+                "Monto:Q",
+                title="Monto ($)"
+            ),
+            color=alt.Color(
+                "Tipo:N",
+                legend=alt.Legend(title="")
+            ),
+            tooltip=[
+                alt.Tooltip("periodo_jd:N", title="Periodo"),
+                alt.Tooltip("Tipo:N", title="Tipo"),
+                alt.Tooltip("Monto:Q", title="Monto", format=",.2f"),
+                alt.Tooltip("% Cumplimiento Meta:Q", title="% Cumplimiento", format=".2f")
+            ]
+        )
+        .properties(height=420)
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
 
     # --------------------------------------------------
     # TABLA MES A MES
