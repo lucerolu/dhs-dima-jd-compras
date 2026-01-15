@@ -212,8 +212,6 @@ def mostrar(config):
 
     st.subheader("🏬 Venta por sucursal vs meta (Año fiscal JD)")
 
-    #DATOS
-
     sucursal_df = (
         df_meta_fiscal
         .groupby(
@@ -227,10 +225,10 @@ def mostrar(config):
         .sort_values(["sucursal", "orden_mes_fiscal"])
     )
 
-    #GRAFICO
+    base = alt.Chart(sucursal_df)
 
     bars = (
-        alt.Chart(sucursal_df)
+        base
         .mark_bar(opacity=0.75)
         .encode(
             x=alt.X(
@@ -253,7 +251,7 @@ def mostrar(config):
     )
 
     line = (
-        alt.Chart(sucursal_df)
+        base
         .mark_line(color="black", strokeDash=[4, 4])
         .encode(
             x="periodo_jd:N",
@@ -264,7 +262,7 @@ def mostrar(config):
     chart = (
         alt.layer(bars, line)
         .facet(
-            facet=alt.Facet(
+            column=alt.Column(
                 "sucursal:N",
                 title=None,
                 columns=3
