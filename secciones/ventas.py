@@ -24,12 +24,21 @@ def mostrar(config):
     # CARGA DE DATOS
     # --------------------------------------------------
     df = obtener_vista("vw_facturacion_sucursal_mes_jd")
+    df_meta = obtener_vista("vw_dashboard_meta_sucursal")
 
     if df.empty:
         st.warning("No hay datos disponibles para ventas.")
         return
 
+    if df_meta.empty:
+        st.warning("No hay datos de metas disponibles.")
+        return
+
     df["venta_real"] = pd.to_numeric(df["venta_real"], errors="coerce").fillna(0)
+    df_meta_fiscal = df_meta[df_meta["anio_fiscal_jd"] == anio_fiscal_actual].copy()
+    df_meta_fiscal["venta_real"] = pd.to_numeric(df_meta_fiscal["venta_real"], errors="coerce").fillna(0)
+    df_meta_fiscal["meta"] = pd.to_numeric(df_meta_fiscal["meta"], errors="coerce").fillna(0)
+
 
     # --------------------------------------------------
     # AÑO FISCAL ACTUAL
@@ -49,6 +58,31 @@ def mostrar(config):
         .agg({"venta_real": "sum"})
         .sort_values("orden_mes_fiscal")
     )
+
+    meta_mensual = (
+        df_meta_fiscal
+        .groupby(
+            ["orden_mes_fiscal", "periodo_jd"],
+            as_index=False
+        )
+        .agg({
+            "venta_real": "sum",
+            "meta": "sum"
+        })
+        .sort_values("orden_mes_fiscal")
+    )
+
+    meta_mensual["% Cumplimiento Meta"] = (
+        meta_mensual["venta_real"] / meta_mensual["meta"] * 100
+    ).where(meta_mensual["meta"] > 0)
+
+    mensual = mensual.merge(
+        meta_mensual[["periodo_jd", "% Cumplimiento Meta"]],
+        on="periodo_jd",
+        how="left"
+    )
+
+
 
     # --------------------------------------------------
     # KPIs
@@ -95,7 +129,8 @@ def mostrar(config):
     tabla = mensual[[
         "periodo_jd",
         "venta_real",
-        "% Variación"
+        "% Variación",
+        "% Cumplimiento Meta"
     ]].rename(columns={
         "periodo_jd": "Periodo",
         "venta_real": "Venta"
@@ -106,7 +141,12 @@ def mostrar(config):
     mostrar_tabla_normal(
         df=tabla,
         columnas_fijas=["Periodo"],
-        columnas_numericas=["Venta", "% Variación"],
-        height=450
+        columnas_numericas=[
+            "Venta",
+            "% Variación",
+            "% Cumplimiento Meta"
+        ],
+        height=480
     )
+
 
