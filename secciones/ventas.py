@@ -2,7 +2,9 @@
 
 import streamlit as st
 import pandas as pd
+
 from utils.api_utils import obtener_vista
+from utils.table_utils import mostrar_tabla_aggrid
 
 
 def mostrar(config):
@@ -27,40 +29,35 @@ def mostrar(config):
         st.warning("No hay datos disponibles para ventas.")
         return
 
-    # Asegurar tipos
     df["venta_real"] = pd.to_numeric(df["venta_real"], errors="coerce").fillna(0)
 
     # --------------------------------------------------
-    # AÑO FISCAL ACTUAL (el más reciente disponible)
+    # AÑO FISCAL ACTUAL
     # --------------------------------------------------
     anio_fiscal_actual = df["anio_fiscal_jd"].max()
-
     df_fiscal = df[df["anio_fiscal_jd"] == anio_fiscal_actual]
 
     # --------------------------------------------------
-    # AGRUPACIÓN MENSUAL (todas las sucursales)
+    # AGRUPACIÓN MENSUAL (ORDEN FISCAL CORRECTO)
     # --------------------------------------------------
     mensual = (
         df_fiscal
-        .groupby(["anio_fiscal_jd", "mes", "mes_nombre", "periodo_jd"], as_index=False)
+        .groupby(
+            ["anio_fiscal_jd", "orden_mes_fiscal", "periodo_jd"],
+            as_index=False
+        )
         .agg({"venta_real": "sum"})
-        .sort_values("mes")
+        .sort_values("orden_mes_fiscal")
     )
 
     # --------------------------------------------------
-    # KPI: Venta acumulada fiscal
+    # KPIs
     # --------------------------------------------------
     venta_acumulada = mensual["venta_real"].sum()
 
-    # --------------------------------------------------
-    # KPI: Mes actual (último con datos)
-    # --------------------------------------------------
     mes_actual = mensual.iloc[-1]
     venta_mes_actual = mes_actual["venta_real"]
 
-    # --------------------------------------------------
-    # KPI: Variación vs mes anterior
-    # --------------------------------------------------
     if len(mensual) > 1:
         venta_mes_anterior = mensual.iloc[-2]["venta_real"]
         variacion_pct = (
@@ -70,24 +67,21 @@ def mostrar(config):
     else:
         variacion_pct = 0
 
-    # --------------------------------------------------
-    # TARJETAS KPI
-    # --------------------------------------------------
     col1, col2, col3 = st.columns(3)
 
     col1.metric(
-        label=f"Venta acumulada FY {anio_fiscal_actual}",
-        value=f"${venta_acumulada:,.2f}"
+        f"Venta acumulada FY {anio_fiscal_actual}",
+        f"${venta_acumulada:,.2f}"
     )
 
     col2.metric(
-        label=f"Venta mes actual ({mes_actual['periodo_jd']})",
-        value=f"${venta_mes_actual:,.2f}"
+        f"Venta mes actual ({mes_actual['periodo_jd']})",
+        f"${venta_mes_actual:,.2f}"
     )
 
     col3.metric(
-        label="Variación vs mes anterior",
-        value=f"{variacion_pct:,.2f} %",
+        "Variación vs mes anterior",
+        f"{variacion_pct:,.2f} %",
         delta=f"{variacion_pct:,.2f} %"
     )
 
@@ -96,42 +90,23 @@ def mostrar(config):
     # --------------------------------------------------
     # TABLA MES A MES
     # --------------------------------------------------
-    mensual["variacion_pct"] = mensual["venta_real"].pct_change() * 100
+    mensual["% Variación"] = mensual["venta_real"].pct_change() * 100
 
-    # Formato para mostrar
     tabla = mensual[[
         "periodo_jd",
         "venta_real",
-        "variacion_pct"
-    ]].copy()
-
-    tabla.rename(columns={
+        "% Variación"
+    ]].rename(columns={
         "periodo_jd": "Periodo",
-        "venta_real": "Venta",
-        "variacion_pct": "% Variación vs mes anterior"
-    }, inplace=True)
-
-    # --------------------------------------------------
-    # ESTILOS
-    # --------------------------------------------------
-    def color_variacion(val):
-        if pd.isna(val):
-            return ""
-        elif val > 0:
-            return "color: green; font-weight: bold;"
-        elif val < 0:
-            return "color: red; font-weight: bold;"
-        return ""
+        "venta_real": "Venta"
+    })
 
     st.subheader("📊 Ventas mes a mes (Año fiscal JD)")
 
-    st.dataframe(
-        tabla.style
-        .format({
-            "Venta": "${:,.2f}",
-            "% Variación vs mes anterior": "{:,.2f} %"
-        })
-        .applymap(color_variacion, subset=["% Variación vs mes anterior"]),
-        use_container_width=True
+    mostrar_tabla_aggrid(
+        df=tabla,
+        columnas_fijas=["Periodo"],
+        columnas_numericas=["Venta", "% Variación"],
+        height=450
     )
 
