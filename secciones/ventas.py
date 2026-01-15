@@ -241,11 +241,6 @@ def mostrar(config):
                 "venta_real:Q",
                 title="Venta ($)"
             ),
-            column=alt.Column(
-                "sucursal:N",
-                title=None,
-                columns=3
-            ),
             tooltip=[
                 alt.Tooltip("sucursal:N", title="Sucursal"),
                 alt.Tooltip("periodo_jd:N", title="Periodo"),
@@ -260,18 +255,25 @@ def mostrar(config):
         .mark_line(color="black", strokeDash=[4, 4])
         .encode(
             x="periodo_jd:N",
-            y="meta:Q",
-            column=alt.Column("sucursal:N")
+            y="meta:Q"
         )
     )
 
     chart = (
         alt.layer(bars, line)
+        .facet(
+            column=alt.Column(
+                "sucursal:N",
+                title=None,
+                columns=3
+            )
+        )
         .resolve_scale(y="independent")
         .properties(height=180)
     )
 
     st.altair_chart(chart, use_container_width=True)
+
 
 
 
