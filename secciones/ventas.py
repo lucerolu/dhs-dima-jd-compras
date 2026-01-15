@@ -35,16 +35,18 @@ def mostrar(config):
         return
 
     df["venta_real"] = pd.to_numeric(df["venta_real"], errors="coerce").fillna(0)
-    df_meta_fiscal = df_meta[df_meta["anio_fiscal_jd"] == anio_fiscal_actual].copy()
-    df_meta_fiscal["venta_real"] = pd.to_numeric(df_meta_fiscal["venta_real"], errors="coerce").fillna(0)
-    df_meta_fiscal["meta"] = pd.to_numeric(df_meta_fiscal["meta"], errors="coerce").fillna(0)
-
-
+    
     # --------------------------------------------------
     # AÑO FISCAL ACTUAL
     # --------------------------------------------------
     anio_fiscal_actual = df["anio_fiscal_jd"].max()
     df_fiscal = df[df["anio_fiscal_jd"] == anio_fiscal_actual]
+    
+    
+    df_meta_fiscal = df_meta[df_meta["anio_fiscal_jd"] == anio_fiscal_actual].copy()
+    df_meta_fiscal["venta_real"] = pd.to_numeric(df_meta_fiscal["venta_real"], errors="coerce").fillna(0)
+    df_meta_fiscal["meta"] = pd.to_numeric(df_meta_fiscal["meta"], errors="coerce").fillna(0)
+
 
     # --------------------------------------------------
     # AGRUPACIÓN MENSUAL (ORDEN FISCAL CORRECTO)
@@ -61,15 +63,11 @@ def mostrar(config):
 
     meta_mensual = (
         df_meta_fiscal
-        .groupby(
-            ["orden_mes_fiscal", "periodo_jd"],
-            as_index=False
-        )
+        .groupby("periodo_jd", as_index=False)
         .agg({
             "venta_real": "sum",
             "meta": "sum"
         })
-        .sort_values("orden_mes_fiscal")
     )
 
     meta_mensual["% Cumplimiento Meta"] = (
