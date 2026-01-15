@@ -268,11 +268,11 @@ def mostrar(config):
                 columns=3
             )
         )
-        .resolve_scale(y="independent")
         .properties(height=180)
     )
 
     st.altair_chart(chart, use_container_width=True)
+
 
 
 
