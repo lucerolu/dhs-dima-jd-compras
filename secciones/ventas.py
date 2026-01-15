@@ -225,15 +225,15 @@ def mostrar(config):
         .sort_values(["sucursal", "orden_mes_fiscal"])
     )
 
-    bar = (
+    bars = (
         alt.Chart(sucursal_df)
         .mark_bar(opacity=0.75)
         .encode(
             x=alt.X(
                 "periodo_jd:N",
-                title="Periodo",
                 sort=list(mensual["periodo_jd"]),
-                axis=alt.Axis(labelAngle=0)
+                axis=alt.Axis(labelAngle=0),
+                title="Periodo"
             ),
             y=alt.Y(
                 "venta_real:Q",
@@ -248,28 +248,29 @@ def mostrar(config):
         )
     )
 
-    line = (
+    meta_line = (
         alt.Chart(sucursal_df)
-        .mark_line(color="black", strokeDash=[4, 4])
+        .mark_rule(color="black", strokeDash=[4, 4])
         .encode(
-            x="periodo_jd:N",
             y="meta:Q"
         )
     )
 
     chart = (
-        alt.layer(bar, line)
+        alt.layer(bars, meta_line)
         .facet(
             column=alt.Column(
                 "sucursal:N",
-                title=None,
-                columns=3
+                columns=3,
+                title=None
             )
         )
+        .resolve_scale(y="independent")
         .properties(height=180)
     )
 
     st.altair_chart(chart, use_container_width=True)
+
 
 
 
