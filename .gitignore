@@ -11,4 +11,4 @@ venv/
 .venv/
 
 # Secretos (¡MUY IMPORTANTE!)
-.streamlit/secrets.toml
+**/secrets.toml
