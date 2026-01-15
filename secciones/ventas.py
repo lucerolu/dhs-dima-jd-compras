@@ -149,14 +149,14 @@ def mostrar(config):
 
     chart = (
         alt.Chart(grafica_long)
-        .mark_bar()
+        .mark_line(point=True)
         .encode(
             x=alt.X(
                 "periodo_jd:N",
                 title="Periodo",
-                sort=list(mensual["periodo_jd"])
+                sort=list(mensual["periodo_jd"]),
+                axis=alt.Axis(labelAngle=0)
             ),
-            xOffset="Tipo:N",
             y=alt.Y(
                 "Monto:Q",
                 title="Monto ($)"
