@@ -6,6 +6,7 @@ import altair as alt
 
 from utils.api_utils import obtener_vista
 from utils.table_utils import mostrar_tabla_normal
+from utils.table_utils import mostrar_tabla_matriz
 
 
 def mostrar(config):
@@ -71,19 +72,22 @@ def mostrar(config):
         })
     )
 
-    meta_mensual["% Cumplimiento Meta"] = (
+    meta_mensual["cumplimiento_meta_pct"] = (
         meta_mensual["venta_real"] / meta_mensual["meta"] * 100
     ).where(meta_mensual["meta"] > 0)
+
+
 
     mensual = mensual.merge(
         meta_mensual[[
             "periodo_jd",
             "meta",
-            "% Cumplimiento Meta"
+            "cumplimiento_meta_pct"
         ]],
         on="periodo_jd",
         how="left"
     )
+
 
     # --------------------------------------------------
     # KPIs
@@ -132,11 +136,12 @@ def mostrar(config):
         "periodo_jd",
         "venta_real",
         "meta",
-        "% Cumplimiento Meta"
+        "cumplimiento_meta_pct"
     ]].dropna(subset=["meta"])
 
+
     grafica_long = grafica_df.melt(
-        id_vars=["periodo_jd", "% Cumplimiento Meta"],
+        id_vars=["periodo_jd", "cumplimiento_meta_pct"],
         value_vars=["venta_real", "meta"],
         var_name="Tipo",
         value_name="Monto"
@@ -169,7 +174,11 @@ def mostrar(config):
                 alt.Tooltip("periodo_jd:N", title="Periodo"),
                 alt.Tooltip("Tipo:N", title="Tipo"),
                 alt.Tooltip("Monto:Q", title="Monto", format=",.2f"),
-                alt.Tooltip("% Cumplimiento Meta:Q", title="% Cumplimiento", format=".2f")
+                alt.Tooltip(
+                    "cumplimiento_meta_pct:Q",
+                    title="% Cumplimiento",
+                    format=".2f"
+                )
             ]
         )
         .properties(height=420)
@@ -187,10 +196,11 @@ def mostrar(config):
         "periodo_jd",
         "venta_real",
         "% Variación",
-        "% Cumplimiento Meta"
+        "cumplimiento_meta_pct"
     ]].rename(columns={
         "periodo_jd": "Periodo",
-        "venta_real": "Venta"
+        "venta_real": "Venta",
+        "cumplimiento_meta_pct": "% Cumplimiento Meta"
     })
 
     st.subheader("📊 Ventas mes a mes (Año fiscal JD)")
@@ -212,64 +222,162 @@ def mostrar(config):
 
     st.subheader("🏬 Venta por sucursal vs meta (Año fiscal JD)")
 
-    sucursal_df = (
-        df_meta_fiscal
+    sucursales = sorted(df_meta_fiscal["sucursal"].dropna().unique())
+    sucursal_sel = st.selectbox(
+        "Selecciona una sucursal",
+        sucursales,
+        key="sucursal_venta_meta"
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    df_sucursal = df_meta_fiscal[
+        df_meta_fiscal["sucursal"] == sucursal_sel
+    ]
+
+    mensual_sucursal = (
+        df_sucursal
         .groupby(
-            ["sucursal", "orden_mes_fiscal", "periodo_jd"],
+            ["periodo_jd", "orden_mes_fiscal"],
             as_index=False
         )
         .agg({
             "venta_real": "sum",
             "meta": "sum"
         })
-        .sort_values(["sucursal", "orden_mes_fiscal"])
+        .sort_values("orden_mes_fiscal")
     )
 
-    bars = (
-        alt.Chart(sucursal_df)
-        .mark_bar(opacity=0.75)
+    mensual_sucursal["cumplimiento_meta_pct"] = (
+        mensual_sucursal["venta_real"]
+        / mensual_sucursal["meta"].replace(0, None)
+        * 100
+    )
+
+    grafica_long = mensual_sucursal.melt(
+        id_vars=["periodo_jd", "cumplimiento_meta_pct"],
+        value_vars=["venta_real", "meta"],
+        var_name="Tipo",
+        value_name="Monto"
+    )
+
+    grafica_long["Tipo"] = grafica_long["Tipo"].map({
+        "venta_real": "Venta real",
+        "meta": "Meta"
+    })
+
+    chart = (
+        alt.Chart(grafica_long)
+        .mark_line(point=True)
         .encode(
             x=alt.X(
                 "periodo_jd:N",
-                sort=list(mensual["periodo_jd"]),
+                sort=list(mensual_sucursal["periodo_jd"]),
                 axis=alt.Axis(labelAngle=0),
                 title="Periodo"
             ),
             y=alt.Y(
-                "venta_real:Q",
-                title="Venta ($)"
+                "Monto:Q",
+                title="Monto ($)"
+            ),
+            color=alt.Color(
+                "Tipo:N",
+                legend=alt.Legend(title="")
             ),
             tooltip=[
-                alt.Tooltip("sucursal:N", title="Sucursal"),
                 alt.Tooltip("periodo_jd:N", title="Periodo"),
-                alt.Tooltip("venta_real:Q", title="Venta", format=",.2f"),
-                alt.Tooltip("meta:Q", title="Meta", format=",.2f")
+                alt.Tooltip("Tipo:N", title="Tipo"),
+                alt.Tooltip("Monto:Q", title="Monto", format=",.2f"),
+                alt.Tooltip("% Cumplimiento Meta:Q", title="% Cumplimiento", format=".2f")
             ]
         )
-    )
-
-    meta_line = (
-        alt.Chart(sucursal_df)
-        .mark_rule(color="black", strokeDash=[4, 4])
-        .encode(
-            y="meta:Q"
-        )
-    )
-
-    chart = (
-        alt.layer(bars, meta_line)
-        .facet(
-            column=alt.Column(
-                "sucursal:N",
-                columns=3,
-                title=None
-            )
-        )
-        .resolve_scale(y="independent")
-        .properties(height=180)
+        .properties(height=420)
     )
 
     st.altair_chart(chart, use_container_width=True)
+
+    st.subheader("📋 Detalle mensual de venta vs meta")
+
+    tabla_mensual = mensual_sucursal[[
+        "periodo_jd",
+        "venta_real",
+        "meta",
+        "cumplimiento_meta_pct"
+    ]].rename(columns={
+        "periodo_jd": "Periodo",
+        "venta_real": "Venta",
+        "meta": "Meta",
+        "cumplimiento_meta_pct": "% Cumplimiento"
+    })
+
+    st.dataframe(
+        tabla_mensual,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    
+    # --------------------------------------------------
+    # MATRIZ DE VENTAS POR SUCURSAL Y MES
+    # --------------------------------------------------
+
+    st.subheader("📊 Venta mensual por sucursal (Año fiscal JD)")
+
+    ventas_sucursal_mes = (
+        df_fiscal
+        .groupby(
+            ["orden_mes_fiscal", "periodo_jd", "sucursal"],
+            as_index=False
+        )
+        .agg({"venta_real": "sum"})
+    )
+
+    matriz = (
+        ventas_sucursal_mes
+        .pivot(
+            index=["orden_mes_fiscal", "periodo_jd"],
+            columns="sucursal",
+            values="venta_real"
+        )
+        .fillna(0)
+        .reset_index()
+        .sort_values("orden_mes_fiscal")
+    )
+
+    matriz = matriz.drop(columns=["orden_mes_fiscal"])
+
+    header_left = ["periodo_jd"]
+    data_columns = [c for c in matriz.columns if c != "periodo_jd"]
+
+    footer_totals = {
+        "periodo_jd": "TOTAL",
+        **{col: matriz[col].sum() for col in data_columns}
+    }
+
+    # columnas de sucursales
+    data_columns = [c for c in matriz.columns if c != "periodo_jd"]
+
+    # TOTAL por fila
+    matriz["Total"] = matriz[data_columns].sum(axis=1)
+
+    # TOTAL por columna (footer)
+    footer_totals = {
+        "periodo_jd": "TOTAL",
+        **{col: matriz[col].sum() for col in data_columns},
+        "Total": matriz["Total"].sum()
+    }
+
+    mostrar_tabla_matriz(
+        df=matriz,
+        header_left=["periodo_jd"],
+        data_columns=data_columns,
+        header_right=["Total"],
+        footer_totals=footer_totals,
+        max_height=520
+    )
+
+
+
 
 
 

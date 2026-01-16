@@ -22,6 +22,8 @@ function(params) {
 }
 """)
 
+
+
 # --------------------------------------------------
 # TABLA BASE REUTILIZABLE
 # --------------------------------------------------
@@ -41,7 +43,7 @@ def mostrar_tabla_normal(
     columnas_numericas = columnas_numericas or []
 
     # ---------------------------------
-    # ALTURA DINÁMICA (evita espacio blanco)
+    # ALTURA DINÁMICA
     # ---------------------------------
     row_height = 35
     header_height = 40
@@ -68,7 +70,6 @@ def mostrar_tabla_normal(
     # ---------------------------------
     for i, col in enumerate(columnas_fijas):
         cell_class = []
-
         if resaltar_primera_columna and i == 0:
             cell_class.append("header-left")
 
@@ -77,10 +78,7 @@ def mostrar_tabla_normal(
             pinned="left",
             minWidth=160,
             cellClass=" ".join(cell_class) if cell_class else None,
-            cellStyle={
-                "fontWeight": "bold",
-                "textAlign": "left"
-            }
+            cellStyle={"fontWeight": "bold", "textAlign": "left"}
         )
 
     # ---------------------------------
@@ -104,10 +102,7 @@ def mostrar_tabla_normal(
             pinned="right",
             valueFormatter=value_formatter_2dec,
             cellClass="header-right",
-            cellStyle={
-                "fontWeight": "bold",
-                "textAlign": "right"
-            },
+            cellStyle={"fontWeight": "bold", "textAlign": "right"},
             minWidth=160
         )
 
@@ -117,9 +112,15 @@ def mostrar_tabla_normal(
     grid_options = gb.build()
     grid_options.update({
         "domLayout": "normal",
-        "suppressHorizontalScroll": False,
+        "suppressHorizontalScroll": True,
         "alwaysShowHorizontalScroll": False,
-        "alwaysShowVerticalScroll": False
+        "alwaysShowVerticalScroll": False,
+        "onGridReady": JsCode("""
+        function(params) {
+            // Ajusta columnas al ancho real del contenedor, incluso si sidebar cambia
+            setTimeout(function() { params.api.sizeColumnsToFit(); }, 100);
+        }
+        """)
     })
 
     # ---------------------------------
@@ -131,10 +132,10 @@ def mostrar_tabla_normal(
         theme=AgGridTheme.ALPINE,
         height=calculated_height,
         use_container_width=True,
-        fit_columns_on_grid_load=False,  # 👈 CLAVE
-        columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS,  # 👈 CLAVE
+        fit_columns_on_grid_load=False,  # 👈 desactivamos para que no interfiera
         allow_unsafe_jscode=True
     )
+
 
 
 
@@ -144,12 +145,32 @@ def mostrar_tabla_matriz(
     data_columns: list,
     header_right: list = None,
     footer_totals: dict = None,
-    height: int = 600
+    max_height: int = 600
 ):
     if df.empty:
         return
 
     header_right = header_right or []
+
+    # ----------------------------
+    # ALTURAS BASE
+    # ----------------------------
+    row_height = 35
+    header_height = 42
+    footer_height = 35 if footer_totals else 0
+
+    # 🔑 BUFFER REAL DE AG GRID
+    # (scroll horizontal + pinned container + padding interno)
+    aggrid_buffer = 24 if footer_totals else 10
+
+    dynamic_height = (
+        header_height +
+        (len(df) * row_height) +
+        footer_height +
+        aggrid_buffer
+    )
+
+    final_height = min(dynamic_height, max_height)
 
     gb = GridOptionsBuilder.from_dataframe(df)
 
@@ -160,19 +181,18 @@ def mostrar_tabla_matriz(
         resizable=True,
         sortable=False,
         filter=False,
-        minWidth=110,
+        minWidth=120,
         wrapText=False
     )
 
     # ----------------------------
-    # HEADER LEFT (INFO)
+    # HEADER LEFT
     # ----------------------------
     for col in header_left:
         gb.configure_column(
             col,
             pinned="left",
-            minWidth=160,
-            cellClass="header-left",
+            minWidth=170,
             cellStyle={
                 "fontWeight": "bold",
                 "backgroundColor": "#0B083D",
@@ -182,26 +202,24 @@ def mostrar_tabla_matriz(
         )
 
     # ----------------------------
-    # DATA COLUMNS
+    # DATA
     # ----------------------------
     for col in data_columns:
         gb.configure_column(
             col,
             valueFormatter=value_formatter_2dec,
-            cellClass="data-cell",
             cellStyle={"textAlign": "right"},
             minWidth=130
         )
 
     # ----------------------------
-    # HEADER RIGHT (TOTALES H)
+    # HEADER RIGHT
     # ----------------------------
     for col in header_right:
         gb.configure_column(
             col,
             pinned="right",
             valueFormatter=value_formatter_2dec,
-            cellClass="header-right",
             cellStyle={
                 "fontWeight": "bold",
                 "backgroundColor": "#0B083D",
@@ -214,28 +232,33 @@ def mostrar_tabla_matriz(
     grid_options = gb.build()
 
     # ----------------------------
-    # FOOTER (TOTALES V)
+    # FOOTER
     # ----------------------------
     if footer_totals:
         grid_options["pinnedBottomRowData"] = [footer_totals]
 
+    grid_options["getRowClass"] = JsCode("""
+    function(params) {
+        if (params.node.rowPinned === 'bottom') {
+            return 'footer-row';
+        }
+    }
+    """)
+
     # ----------------------------
-    # SCROLL & LAYOUT
+    # ALTURAS CONTROLADAS
     # ----------------------------
-    grid_options.update({
-        "domLayout": "normal",
-        "suppressHorizontalScroll": False,
-        "alwaysShowHorizontalScroll": False,
-        "alwaysShowVerticalScroll": False
-    })
+    grid_options["rowHeight"] = row_height
+    grid_options["pinnedRowHeight"] = footer_height or row_height
+    grid_options["domLayout"] = "normal"
+    grid_options["alwaysShowHorizontalScroll"] = False
 
     AgGrid(
         df,
         gridOptions=grid_options,
         theme=AgGridTheme.ALPINE,
-        height=height,
+        height=final_height,
         use_container_width=True,
         fit_columns_on_grid_load=False,
-        columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS,
         allow_unsafe_jscode=True
     )
