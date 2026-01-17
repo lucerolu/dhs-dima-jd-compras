@@ -1,6 +1,7 @@
 # utils/table_utils.py
 
 import pandas as pd
+import json
 from st_aggrid import (
     AgGrid,
     GridOptionsBuilder,
@@ -22,6 +23,40 @@ function(params) {
 }
 """)
 
+semaforo_cell_style = JsCode("""
+function(params) {
+    if (!params.value) return {};
+
+    if (params.value === 'VERDE') {
+        return {
+            backgroundColor: '#1E7E34',
+            color: 'white',
+            fontWeight: 'bold',
+            textAlign: 'center'
+        };
+    }
+    if (params.value === 'AMARILLO') {
+        return {
+            backgroundColor: '#FFC107',
+            color: '#212529',
+            fontWeight: 'bold',
+            textAlign: 'center'
+        };
+    }
+    if (params.value === 'ROJO') {
+        return {
+            backgroundColor: '#DC3545',
+            color: 'white',
+            fontWeight: 'bold',
+            textAlign: 'center'
+        };
+    }
+    return {};
+}
+""")
+
+
+
 
 
 # --------------------------------------------------
@@ -31,9 +66,9 @@ def mostrar_tabla_normal(
     df: pd.DataFrame,
     columnas_fijas=None,
     columnas_numericas=None,
+    columnas_sin_degradado=None,
     columna_total=None,
     height=600,
-    mostrar_totales=False,
     resaltar_primera_columna: bool = False
 ):
     if df.empty:
@@ -41,6 +76,7 @@ def mostrar_tabla_normal(
 
     columnas_fijas = columnas_fijas or []
     columnas_numericas = columnas_numericas or []
+    columnas_sin_degradado = columnas_sin_degradado or []
 
     # ---------------------------------
     # ALTURA DINÁMICA
@@ -66,48 +102,131 @@ def mostrar_tabla_normal(
     )
 
     # ---------------------------------
-    # COLUMNAS FIJAS (LEFT)
+    # 🔵 PRIMERA COLUMNA (AZUL OSCURO)
     # ---------------------------------
     for i, col in enumerate(columnas_fijas):
-        cell_class = []
-        if resaltar_primera_columna and i == 0:
-            cell_class.append("header-left")
+        if i == 0 and resaltar_primera_columna:
+            gb.configure_column(
+                col,
+                pinned="left",
+                minWidth=170,
+                cellStyle={
+                    "backgroundColor": "#0B083D",
+                    "color": "white",
+                    "fontWeight": "bold",
+                    "textAlign": "left"
+                }
+            )
+        else:
+            gb.configure_column(
+                col,
+                pinned="left",
+                minWidth=160,
+                cellStyle={
+                    "fontWeight": "bold",
+                    "textAlign": "left"
+                }
+            )
 
-        gb.configure_column(
-            col,
-            pinned="left",
-            minWidth=160,
-            cellClass=" ".join(cell_class) if cell_class else None,
-            cellStyle={"fontWeight": "bold", "textAlign": "left"}
-        )
+    # ---------------------------------
+    # 🎨 CALCULAR MIN / MAX POR COLUMNA
+    # ---------------------------------
+    min_max = {}
+    for col in columnas_numericas:
+        if col not in columnas_sin_degradado and col in df.columns:
+            min_max[col] = {
+                "min": float(df[col].min()),
+                "max": float(df[col].max())
+            }
+
+    min_max_js = json.dumps(min_max)
+
+    # ---------------------------------
+    # 🎨 DEGRADADO AZUL (POR COLUMNA)
+    # ---------------------------------
+    degradado_js = JsCode(f"""
+    function(params) {{
+        const limits = {min_max_js};
+        const col = params.colDef.field;
+
+        if (!limits[col] || params.value == null) {{
+            return {{ textAlign: 'right' }};
+        }}
+
+        const min = limits[col].min;
+        const max = limits[col].max;
+
+        if (max === min) {{
+            return {{
+                backgroundColor: '#E3F2FD',
+                textAlign: 'right'
+            }};
+        }}
+
+        const ratio = (params.value - min) / (max - min);
+
+        const start = [227, 242, 253]; // azul claro
+        const end   = [21, 101, 192];  // azul fuerte
+
+        const r = Math.round(start[0] + ratio * (end[0] - start[0]));
+        const g = Math.round(start[1] + ratio * (end[1] - start[1]));
+        const b = Math.round(start[2] + ratio * (end[2] - start[2]));
+
+        return {{
+            backgroundColor: `rgb(${{r}}, ${{g}}, ${{b}})`,
+            color: ratio > 0.6 ? 'white' : '#0B083D',
+            textAlign: 'right'
+        }};
+    }}
+    """)
 
     # ---------------------------------
     # COLUMNAS NUMÉRICAS
     # ---------------------------------
     for col in columnas_numericas:
+        if col in columnas_sin_degradado:
+            gb.configure_column(
+                col,
+                valueFormatter=value_formatter_2dec,
+                cellStyle={"textAlign": "right"},
+                minWidth=130
+            )
+        else:
+            gb.configure_column(
+                col,
+                valueFormatter=value_formatter_2dec,
+                cellStyle=degradado_js,
+                minWidth=130
+            )
+
+    # ---------------------------------
+    # 🚦 COLUMNA SEMÁFORO
+    # ---------------------------------
+    if "Semáforo" in df.columns:
         gb.configure_column(
-            col,
-            valueFormatter=value_formatter_2dec,
-            cellClass="data-cell",
-            cellStyle={"textAlign": "right"},
-            minWidth=130
+            "Semáforo",
+            minWidth=110,
+            cellStyle=semaforo_cell_style,
+            sortable=False
         )
 
     # ---------------------------------
-    # COLUMNA TOTAL (RIGHT)
+    # TOTAL (DERECHA)
     # ---------------------------------
     if columna_total and columna_total in df.columns:
         gb.configure_column(
             columna_total,
             pinned="right",
             valueFormatter=value_formatter_2dec,
-            cellClass="header-right",
-            cellStyle={"fontWeight": "bold", "textAlign": "right"},
+            cellStyle={
+                "fontWeight": "bold",
+                "textAlign": "right"
+            },
             minWidth=160
         )
 
     # ---------------------------------
-    # OPCIONES DEL GRID
+    # OPCIONES GRID
     # ---------------------------------
     grid_options = gb.build()
     grid_options.update({
@@ -117,8 +236,9 @@ def mostrar_tabla_normal(
         "alwaysShowVerticalScroll": False,
         "onGridReady": JsCode("""
         function(params) {
-            // Ajusta columnas al ancho real del contenedor, incluso si sidebar cambia
-            setTimeout(function() { params.api.sizeColumnsToFit(); }, 100);
+            setTimeout(function() {
+                params.api.sizeColumnsToFit();
+            }, 100);
         }
         """)
     })
@@ -132,7 +252,7 @@ def mostrar_tabla_normal(
         theme=AgGridTheme.ALPINE,
         height=calculated_height,
         use_container_width=True,
-        fit_columns_on_grid_load=False,  # 👈 desactivamos para que no interfiera
+        fit_columns_on_grid_load=False,
         allow_unsafe_jscode=True
     )
 
@@ -202,13 +322,61 @@ def mostrar_tabla_matriz(
         )
 
     # ----------------------------
+    # ESCALA GLOBAL PARA DEGRADADO
+    # ----------------------------
+    valores = df[data_columns].values.flatten()
+    valores = valores[~pd.isna(valores)]
+
+    min_val = float(valores.min()) if len(valores) else 0
+    max_val = float(valores.max()) if len(valores) else 1
+
+    blue_gradient_js = JsCode(f"""
+        function(params) {{
+            if (params.node.rowPinned) {{
+                return null;
+            }}
+
+            if (params.value === null || params.value === undefined) {{
+                return null;
+            }}
+
+            const min = {min_val};
+            const max = {max_val};
+
+            if (max === min) {{
+                return {{
+                    backgroundColor: '#E3F2FD',
+                    textAlign: 'right'
+                }};
+            }}
+
+            const ratio = (params.value - min) / (max - min);
+
+            const start = [227, 242, 253];
+            const end   = [21, 101, 192];
+
+            const r = Math.round(start[0] + ratio * (end[0] - start[0]));
+            const g = Math.round(start[1] + ratio * (end[1] - start[1]));
+            const b = Math.round(start[2] + ratio * (end[2] - start[2]));
+
+            return {{
+                backgroundColor: `rgb(${{r}}, ${{g}}, ${{b}})`,
+                color: ratio > 0.6 ? 'white' : '#0B083D',
+                textAlign: 'right'
+            }};
+        }}
+        """)
+
+
+
+    # ----------------------------
     # DATA
     # ----------------------------
     for col in data_columns:
         gb.configure_column(
             col,
             valueFormatter=value_formatter_2dec,
-            cellStyle={"textAlign": "right"},
+            cellStyle=blue_gradient_js,
             minWidth=130
         )
 
@@ -234,13 +402,20 @@ def mostrar_tabla_matriz(
     # ----------------------------
     # FOOTER
     # ----------------------------
+
     if footer_totals:
         grid_options["pinnedBottomRowData"] = [footer_totals]
 
-    grid_options["getRowClass"] = JsCode("""
+    # Aplicar estilo directo al footer
+    grid_options["getRowStyle"] = JsCode("""
     function(params) {
         if (params.node.rowPinned === 'bottom') {
-            return 'footer-row';
+            return {
+                backgroundColor: '#0B083D',
+                color: 'white',
+                fontWeight: 'bold',
+                textAlign: 'right'
+            }
         }
     }
     """)

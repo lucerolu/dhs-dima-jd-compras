@@ -8,7 +8,7 @@ from utils.config import cargar_config
 from utils.api_utils import mostrar_fecha_actualizacion
 
 # Secciones
-from secciones import compras, ventas, clientes
+from secciones import compras, ventas, clientes, vendedores, cancelaciones
 
 # -----------------------------------------------------
 # CONFIGURACIÓN DE LA PÁGINA
@@ -58,7 +58,9 @@ if authentication_status is True:
             [
                 "Compras vs Meta",
                 "Ventas",
-                "Clientes / Ubicación"
+                "Clientes / Ubicación",
+                "Vendedores",
+                "Cancelaciones"
             ]
         )
 
@@ -77,6 +79,12 @@ if authentication_status is True:
 
     elif opcion == "Clientes / Ubicación":
         clientes.mostrar(config)
+
+    elif opcion == "Vendedores":
+        vendedores.mostrar(config)
+
+    elif opcion == "Cancelaciones":
+        cancelaciones.mostrar(config)
 
 elif authentication_status is False:
     st.error("❌ Usuario o contraseña incorrectos")
