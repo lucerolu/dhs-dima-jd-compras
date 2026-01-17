@@ -423,7 +423,7 @@ def grafica_venta_sucursal_vs_meta(df_meta_fiscal):
     )
 
     st.altair_chart(chart, use_container_width=True)
-    return mensual_sucursal
+    #return mensual_sucursal
 
 
 def matriz_ventas_sucursal(df_fiscal):
@@ -713,9 +713,16 @@ def mostrar(config):
 
     grafica_meta_horizontal(mensual)
 
-    mensual_sucursal = grafica_venta_sucursal_vs_meta(df_meta_fiscal)
-
     matriz_ventas_sucursal(df_fiscal)
+
+    grafica_venta_sucursal_vs_meta(df_meta_fiscal)
+
+
+
+    #mensual_sucursal = grafica_venta_sucursal_vs_meta(df_meta_fiscal)
+    #tabla_detalle_mensual_sucursal(mensual_sucursal)
+
+    #matriz_ventas_sucursal(df_fiscal)
 
     tabla_sucursal, periodo_sel = detalle_sucursal_por_mes(
         df_fiscal,
@@ -724,7 +731,7 @@ def mostrar(config):
 
     grafica_cumplimiento_sucursal(tabla_sucursal, periodo_sel)
 
-    tabla_detalle_mensual_sucursal(mensual_sucursal)
+    
 
 
 
