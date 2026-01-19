@@ -37,21 +37,28 @@ authenticator = stauth.Authenticate(
     auth_config.get("preauthorized", {}).get("emails", [])
 )
 
-name, authentication_status, username = authenticator.login(
-    "Iniciar sesión",
-    "main"
-)
+# 🔑 SI NO hay estado de autenticación, mostramos login
+if "authentication_status" not in st.session_state:
+    st.session_state["authentication_status"] = None
+
+if st.session_state["authentication_status"] is None:
+    name, authentication_status, username = authenticator.login(
+        "Iniciar sesión",
+        "main"
+    )
+    st.session_state["authentication_status"] = authentication_status
+    st.session_state["name"] = name
+    st.session_state["username"] = username
 
 # -----------------------------------------------------
 # APP PRINCIPAL
 # -----------------------------------------------------
-if authentication_status is True:
-    st.session_state["user_name"] = name
+if st.session_state["authentication_status"] is True:
+    user_name = st.session_state.get("name")
     config = cargar_config()
 
-    # ------------------- SIDEBAR -------------------
     with st.sidebar:
-        st.markdown(f"👋 **Bienvenida, {name}**")
+        st.markdown(f"👋 **Bienvenida, {user_name}**")
 
         opcion = st.selectbox(
             "Selecciona una vista",
@@ -65,7 +72,11 @@ if authentication_status is True:
         )
 
         st.markdown("---")
-        authenticator.logout("Cerrar sesión", "sidebar")
+        if authenticator.logout("Cerrar sesión", "sidebar"):
+            st.session_state["authentication_status"] = None
+            st.session_state["name"] = None
+            st.session_state["username"] = None
+            st.rerun()
 
         st.markdown("---")
         mostrar_fecha_actualizacion()
@@ -86,9 +97,9 @@ if authentication_status is True:
     elif opcion == "Cancelaciones":
         cancelaciones.mostrar(config)
 
-elif authentication_status is False:
+elif st.session_state["authentication_status"] is False:
     st.error("❌ Usuario o contraseña incorrectos")
 
-elif authentication_status is None:
+else:
     st.info("🔐 Ingresa tus credenciales para continuar")
 
