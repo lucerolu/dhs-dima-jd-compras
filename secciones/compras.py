@@ -42,69 +42,73 @@ def mostrar_tarjetas_mes_actual(df_mes):
                     html, body {{
                         margin: 0;
                         padding: 0;
-                        background: transparent;
+                        background: #0e1117;
                     }}
                 </style>
 
+                <!-- WRAPPER: tapa el fondo blanco del iframe -->
                 <div style="
-                    background-color:#0e1117;
-                    border-radius:16px;
-                    padding:26px;
-                    border-left:10px solid {color};
-                    color:white;
-                    display:flex;
-                    flex-direction:column;
-                    justify-content:space-between;
-                    gap:14px;
-                    font-family:Arial, sans-serif;
+                    background:#0e1117;
+                    padding:6px;
                     box-sizing:border-box;
                 ">
 
-                    <!-- TÍTULO -->
+                    <!-- TARJETA REAL -->
                     <div style="
-                        font-size:22px;
-                        font-weight:700;
-                        margin-bottom:16px;
+                        background-color:#0e1117;
+                        border-radius:16px;
+                        padding:26px;
+                        border-left:10px solid {color};
+                        color:white;
+                        display:flex;
+                        flex-direction:column;
+                        justify-content:space-between;
+                        gap:14px;
+                        font-family:Arial, sans-serif;
+                        box-sizing:border-box;
                     ">
-                        {row['division_nombre']}
-                    </div>
 
-                    <!-- DATOS -->
-                    <div>
-                        <div style="margin-bottom:12px;">
-                            <div style="font-size:15px;opacity:0.7;">
-                                Compra
-                            </div>
-                            <div style="font-size:20px;font-weight:700;">
-                                ${row['compra_real']:,.0f}
-                            </div>
+                        <div style="
+                            font-size:22px;
+                            font-weight:700;
+                            margin-bottom:16px;
+                        ">
+                            {row['division_nombre']}
                         </div>
 
                         <div>
-                            <div style="font-size:15px;opacity:0.7;">
-                                Meta
+                            <div style="margin-bottom:12px;">
+                                <div style="font-size:15px;opacity:0.7;">Compra</div>
+                                <div style="font-size:20px;font-weight:700;">
+                                    ${row['compra_real']:,.0f}
+                                </div>
                             </div>
-                            <div style="font-size:20px;font-weight:700;">
-                                ${row['meta_monto']:,.0f}
+
+                            <div>
+                                <div style="font-size:15px;opacity:0.7;">Meta</div>
+                                <div style="font-size:20px;font-weight:700;">
+                                    ${row['meta_monto']:,.0f}
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- PORCENTAJE -->
-                    <div style="
-                        font-size:34px;
-                        font-weight:800;
-                        color:{color};
-                        text-align:right;
-                        margin-top:10px;
-                    ">
-                        {pct:.1f}%
+                        <div style="
+                            font-size:34px;
+                            font-weight:800;
+                            color:{color};
+                            text-align:right;
+                            margin-top:10px;
+                        ">
+                            {pct:.1f}%
+                        </div>
+
                     </div>
                 </div>
                 """,
-                height=270,
+                height=285,
                 scrolling=False
             )
+
 
 
 
