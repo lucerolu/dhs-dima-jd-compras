@@ -38,6 +38,14 @@ def mostrar_tarjetas_mes_actual(df_mes):
         with col:
             components.html(
                 f"""
+                <style>
+                    html, body {{
+                        margin: 0;
+                        padding: 0;
+                        background: transparent;
+                    }}
+                </style>
+
                 <div style="
                     background-color:#0e1117;
                     border-radius:16px;
@@ -49,8 +57,8 @@ def mostrar_tarjetas_mes_actual(df_mes):
                     justify-content:space-between;
                     gap:14px;
                     font-family:Arial, sans-serif;
+                    box-sizing:border-box;
                 ">
-
 
                     <!-- TÍTULO -->
                     <div style="
@@ -94,8 +102,10 @@ def mostrar_tarjetas_mes_actual(df_mes):
                     </div>
                 </div>
                 """,
-                height=280
+                height=270,
+                scrolling=False
             )
+
 
 
 def grafico_ejecucion_vs_meta_mes_actual(df_mes):
