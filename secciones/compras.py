@@ -27,7 +27,7 @@ def color_semaforo(pct):
         return "#e74c3c"  # rojo
 
 def mostrar_tarjetas_mes_actual(df_mes):
-    st.subheader("📆 Mes actual")
+    st.subheader("Mes actual")
 
     cols = st.columns(len(df_mes))
 
@@ -113,7 +113,7 @@ def mostrar_tarjetas_mes_actual(df_mes):
 
 
 def grafico_ejecucion_vs_meta_mes_actual(df_mes):
-    st.subheader("📊 Avance de la meta actual")
+    st.subheader("Avance de la meta actual")
 
     df_g = df_mes.sort_values("porcentaje_avance")
 
@@ -173,7 +173,7 @@ def grafico_ejecucion_vs_meta_mes_actual(df_mes):
 
 
 def grafico_cumplimiento_historico(df):
-    st.subheader("📈 Cumplimiento de meta por mes (%)")
+    st.subheader("Cumplimiento de meta por mes (%)")
 
     df_hist = df[df["compra_real"] > 0].copy()
     df_hist["orden_mes"] = df_hist["anio_jd"] * 100 + df_hist["mes_jd"]
@@ -241,7 +241,7 @@ def grafico_cumplimiento_historico(df):
 
 
 def grafico_meta_vs_compra_por_division(df, division):
-    st.subheader(f"📊 Meta vs Compra mensual – {division}")
+    st.subheader(f"Meta vs Compra mensual – {division}")
 
     df_div = df[df["division_nombre"] == division].copy()
 
@@ -331,7 +331,7 @@ def grafico_meta_vs_compra_por_division(df, division):
 
 
 def mostrar(config):
-    st.title("🛒 Compras vs Meta")
+    st.title("Compras vs Meta")
 
     df = obtener_vista("vw_division_vs_meta_jd")
 

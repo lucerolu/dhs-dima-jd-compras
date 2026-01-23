@@ -153,7 +153,7 @@ def render_kpis(mensual, anio_fiscal_actual):
         # Venta acumulada
         col1.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-label">💰 Venta acumulada al año {anio_fiscal_actual}</div>
+                <div class="kpi-label">Venta acumulada al año {anio_fiscal_actual}</div>
                 <div class="kpi-value">${venta_acumulada:,.2f}</div>
             </div>
         """, unsafe_allow_html=True)
@@ -161,7 +161,7 @@ def render_kpis(mensual, anio_fiscal_actual):
         # Venta mes actual
         col2.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-label">📅 Venta mes actual ({mes_actual['periodo_jd']})</div>
+                <div class="kpi-label">Venta mes actual ({mes_actual['periodo_jd']})</div>
                 <div class="kpi-value">${venta_mes_actual:,.2f}</div>
             </div>
         """, unsafe_allow_html=True)
@@ -175,7 +175,7 @@ def render_kpis(mensual, anio_fiscal_actual):
 
         col3.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-label">📊 Variación vs mes anterior</div>
+                <div class="kpi-label">Variación vs mes anterior</div>
                 <div class="kpi-value">{delta_html}</div>
             </div>
         """, unsafe_allow_html=True)
@@ -183,7 +183,7 @@ def render_kpis(mensual, anio_fiscal_actual):
 
 
 def grafica_venta_vs_meta(mensual):
-    st.subheader("📈 Venta vs Meta por mes")
+    st.subheader("Venta vs Meta por mes")
     grafica_df = mensual[[
         "periodo_jd",
         "venta_real",
@@ -261,7 +261,7 @@ def tabla_ventas_mes_a_mes(mensual):
         "cumplimiento_meta_pct": "% Cumplimiento Meta"
     })
 
-    st.subheader("📊 Ventas mes a mes")
+    st.subheader("Ventas mes a mes")
 
     mostrar_tabla_normal(
         df=tabla,
@@ -281,7 +281,7 @@ def tabla_ventas_mes_a_mes(mensual):
     
 
 def grafica_meta_horizontal(mensual):
-    st.subheader("🎯 Cumplimiento de meta global por mes")
+    st.subheader("Cumplimiento de meta global por mes")
 
     # Copiamos el DF mensual
     grafica_mes = mensual.copy()
@@ -348,7 +348,7 @@ def grafica_meta_horizontal(mensual):
 
 
 def grafica_venta_sucursal_vs_meta(df_meta_fiscal):
-    st.subheader("🏬 Venta por sucursal vs meta")
+    st.subheader("Venta por sucursal vs meta")
 
     sucursales = sorted(df_meta_fiscal["sucursal"].dropna().unique())
     sucursal_sel = st.selectbox(
@@ -485,7 +485,7 @@ def matriz_ventas_sucursal(df_fiscal):
 
 
 def detalle_sucursal_por_mes(df_fiscal, df_meta_fiscal):
-    st.subheader("🏬 Desempeño por sucursal")
+    st.subheader("Desempeño por sucursal")
 
     # -------------------------------
     # SELECTOR DE MES (ORDEN FISCAL)
@@ -588,7 +588,7 @@ def detalle_sucursal_por_mes(df_fiscal, df_meta_fiscal):
 
 
 def grafica_cumplimiento_sucursal(tabla_sucursal, periodo_sel):
-    st.subheader(f"🎯 Cumplimiento de meta por sucursal – {periodo_sel}")
+    st.subheader(f"Cumplimiento de meta por sucursal – {periodo_sel}")
 
     grafica_sucursal = tabla_sucursal[[
         "sucursal",
@@ -643,7 +643,7 @@ def grafica_cumplimiento_sucursal(tabla_sucursal, periodo_sel):
 
 
 def tabla_detalle_mensual_sucursal(mensual_sucursal):
-    st.subheader("📋 Detalle mensual de venta vs meta")
+    st.subheader("Detalle mensual de venta vs meta")
 
     # Renombramos columnas para presentación
     tabla = mensual_sucursal[[
@@ -678,7 +678,7 @@ def tabla_detalle_mensual_sucursal(mensual_sucursal):
 
 
 def mostrar(config):
-    st.title("📈 Ventas")
+    st.title("Ventas")
 
     render_descripcion()
 

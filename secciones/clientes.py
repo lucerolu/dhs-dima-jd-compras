@@ -7,26 +7,42 @@ from utils.api_utils import obtener_vista
 
 
 def obtener_datos_mapa_clientes(anio_seleccionado, mes_seleccionado):
-    """
-    Obtiene y prepara los datos para el mapa de clientes.
-    """
     df = obtener_vista("vw_dashboard_ubicacion_clientes_mes")
 
     if df.empty:
-        return df
+        return df, df
 
-    # ---- Filtro por año (obligatorio) ----
+    # ---- Filtro por año ----
     df = df[df["anio"] == anio_seleccionado]
+
+    # ---- Forzar coordenadas a numérico ----
+    for col in [
+        "cliente_latitud",
+        "cliente_longitud",
+        "sucursal_latitud",
+        "sucursal_longitud"
+    ]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # ---- Eliminar clientes sin coordenadas ----
+    df = df.dropna(subset=["cliente_latitud", "cliente_longitud"])
 
     # ---- Filtro por mes ----
     if mes_seleccionado != "Todos":
         df = df[df["mes_nombre"] == mes_seleccionado]
-
     else:
-        # Agrupamos todos los meses del año
         df = (
             df.groupby(
-                ["Estado", "Ciudad", "latitud", "longitud"],
+                [
+                    "Estado",
+                    "Ciudad",
+                    "cliente_latitud",
+                    "cliente_longitud",
+                    "sucursal_id",
+                    "sucursal",
+                    "sucursal_latitud",
+                    "sucursal_longitud"
+                ],
                 as_index=False
             )
             .agg(
@@ -36,7 +52,20 @@ def obtener_datos_mapa_clientes(anio_seleccionado, mes_seleccionado):
             )
         )
 
-    return df
+    df_clientes = df.copy()
+
+    df_sucursales = (
+        df[
+            ["sucursal_id", "sucursal", "sucursal_latitud", "sucursal_longitud"]
+        ]
+        .dropna(subset=["sucursal_latitud", "sucursal_longitud"])
+        .drop_duplicates()
+    )
+
+    return df_clientes, df_sucursales
+
+
+
 
 
 def selector_periodo(df):
@@ -44,7 +73,7 @@ def selector_periodo(df):
     Selector de año y mes.
     Retorna (anio_seleccionado, mes_seleccionado)
     """
-    st.markdown("### 📅 Filtros de periodo")
+    st.markdown("### Filtros de periodo")
 
     # ---- Selector de año ----
     anios = sorted(df["anio"].dropna().unique().tolist(), reverse=True)
@@ -72,50 +101,83 @@ def selector_periodo(df):
     return anio_sel, mes_sel
 
 
-def mapa_facturacion_clientes(df):
-    if df.empty:
+def mapa_facturacion_clientes(df_clientes, df_sucursales):
+    if df_clientes.empty:
         st.warning("No hay datos para mostrar en el mapa.")
         return
 
+    # ===============================
+    # CAPA CLIENTES
+    # ===============================
     fig = px.scatter_mapbox(
-        df,
-        lat="latitud",
-        lon="longitud",
+        df_clientes,
+        lat="cliente_latitud",
+        lon="cliente_longitud",
         size="venta_total",
-        color="venta_total",
-        color_continuous_scale=[
-            (0.0, "#2ECC71"),
-            (0.5, "#F1C40F"),
-            (1.0, "#E74C3C"),
-        ],
-        size_max=35,
+        color="sucursal",
+        size_max=45,   # 🔍 más grandes
         zoom=4,
         hover_name="Ciudad"
     )
 
     fig.update_traces(
-        customdata=df[
-            ["Estado", "venta_total", "clientes_unicos", "facturas", "latitud", "longitud"]
+        marker=dict(
+            opacity=0.75,
+            sizemode="area"
+        ),
+        customdata=df_clientes[
+            [
+                "Estado",
+                "sucursal",
+                "venta_total",
+                "clientes_unicos",
+                "facturas",
+                "cliente_latitud",
+                "cliente_longitud"
+            ]
         ],
         hovertemplate=(
             "<b style='font-size:14px'>📍 %{hovertext}</b><br>"
-            "<span style='color:#5178ed'>%{customdata[0]}</span><br>"
-            
-            "<b>Venta:</b> $%{customdata[1]:,.2f}<br>"
-            "<b>Clientes:</b> %{customdata[2]}<br>"
-            "<b>Facturas:</b> %{customdata[3]}<br>"
-            
-            "<b>Latitud:</b> %{customdata[4]:.4f}<br>"
-            "<b>Longitud:</b> %{customdata[5]:.4f}"
+            "<span style='color:#555'>%{customdata[0]}</span><br><br>"
+
+            "<b>Sucursal:</b> %{customdata[1]}<br>"
+            "<b>Venta:</b> $%{customdata[2]:,.2f}<br>"
+            "<b>Clientes:</b> %{customdata[3]}<br>"
+            "<b>Facturas:</b> %{customdata[4]}<br><br>"
+
+            "<b>Lat:</b> %{customdata[5]:.4f}<br>"
+            "<b>Lon:</b> %{customdata[6]:.4f}"
+            "<extra></extra>"
+        )
+    )
+
+    # ===============================
+    # CAPA SUCURSALES
+    # ===============================
+    fig.add_scattermapbox(
+        lat=df_sucursales["sucursal_latitud"],
+        lon=df_sucursales["sucursal_longitud"],
+        mode="markers",
+        marker=dict(
+            size=18,
+            symbol="star",
+            color="black"
+        ),
+        text=df_sucursales["sucursal"],
+        hovertemplate=(
+            "<b>Sucursal</b><br>"
+            "%{text}<br><br>"
+            "<b>Lat:</b> %{lat:.4f}<br>"
+            "<b>Lon:</b> %{lon:.4f}"
             "<extra></extra>"
         ),
-        marker=dict(opacity=0.7)
+        name="Sucursales"
     )
 
     fig.update_layout(
         mapbox_style="carto-positron",
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        coloraxis_colorbar=dict(title="Venta total"),
+        legend_title="Sucursal",
         dragmode="zoom"
     )
 
@@ -124,6 +186,8 @@ def mapa_facturacion_clientes(df):
         use_container_width=True,
         config={"scrollZoom": True}
     )
+
+
 
 
 
@@ -154,7 +218,8 @@ def mostrar(config):
     # =========================
     # Datos del mapa
     # =========================
-    df_mapa = obtener_datos_mapa_clientes(anio_sel, mes_sel)
+    df_clientes, df_sucursales = obtener_datos_mapa_clientes(anio_sel, mes_sel)
 
-    st.subheader("🗺️ Facturación y clientes por ubicación")
-    mapa_facturacion_clientes(df_mapa)
+    st.subheader("🗺️ Clientes y sucursales")
+    mapa_facturacion_clientes(df_clientes, df_sucursales)
+

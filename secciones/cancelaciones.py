@@ -88,7 +88,7 @@ def grafica_cancelaciones_mes(df, sucursal_label):
         y='facturas_canceladas',
         text='facturas_canceladas',
         labels={'mes_nombre': 'Mes', 'facturas_canceladas': 'Facturas'},
-        title=f"📅 Cancelaciones por mes - {sucursal_label}",
+        title=f"Cancelaciones por mes - {sucursal_label}",
         color_discrete_sequence=['#EF553B'] # Rojo para cancelaciones
     )
     fig.update_traces(textposition='outside')
@@ -127,7 +127,7 @@ def grafica_top_clientes(df, sucursal_label):
         y='facturas_canceladas',
         color='condicion_venta',
         text='facturas_canceladas',
-        title=f"🏢 Top 10 Clientes - {sucursal_label}",
+        title=f"Top 10 Clientes - {sucursal_label}",
         labels={'facturas_canceladas': 'Facturas'}
     )
     fig.update_traces(textposition='outside')
@@ -147,14 +147,14 @@ def grafica_top_proveedores(df, sucursal_label):
         y='facturas_canceladas',
         color='condicion_venta',
         text='facturas_canceladas',
-        title=f"🚜 Top 10 Proveedores - {sucursal_label}",
+        title=f"Top 10 Proveedores - {sucursal_label}",
         labels={'facturas_canceladas': 'Facturas'}
     )
     fig.update_traces(textposition='outside')
     st.plotly_chart(fig, use_container_width=True)
 
 def mostrar(config):
-    st.title("👥 Cancelaciones")
+    st.title("Cancelaciones")
 
     render_descripcion()
 

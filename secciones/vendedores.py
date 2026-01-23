@@ -7,7 +7,7 @@ import pandas as pd
 import altair as alt
 
 def mostrar(config):
-    st.title("👥 Vendedores")
+    st.title("Vendedores")
     st.markdown("Análisis de rendimiento de vendedores")
 
     # -----------------------------
@@ -121,7 +121,7 @@ def mostrar(config):
         width=700
     )
 
-    st.subheader(f"🎯 Cumplimiento de meta por vendedor – {mes_seleccionado}")
+    st.subheader(f"Cumplimiento de meta por vendedor – {mes_seleccionado}")
     st.altair_chart(chart, use_container_width=True)
 
     # -----------------------------
