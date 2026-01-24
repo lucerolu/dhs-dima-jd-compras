@@ -74,40 +74,60 @@ def grafica_vendedores_altair(df):
     st.altair_chart(chart, use_container_width=True)
 
 def grafica_clientes_altair(df):
-    # Graficamos todos los clientes agrupados por condición
-    data = df.groupby(['Cliente', 'condicion_venta'], as_index=False)['facturas_canceladas'].sum()
+    # 1. Identificamos los 30 clientes que más suman en total
+    top_30_nombres = (
+        df.groupby('Cliente')['facturas_canceladas']
+        .sum()
+        .nlargest(30)
+        .index
+    )
+    
+    # 2. Filtramos el dataframe original para tener el detalle de esos 30
+    df_top = df[df['Cliente'].isin(top_30_nombres)]
+    
+    # 3. Agrupamos por Cliente y Condición para la gráfica
+    data = df_top.groupby(['Cliente', 'condicion_venta'], as_index=False)['facturas_canceladas'].sum()
 
     chart = alt.Chart(data).mark_bar().encode(
-        x=alt.X('Cliente:N', sort='-y', title="Cliente"),
+        # sort='-y' ordena por la suma total de las barras
+        x=alt.X('Cliente:N', sort='-y', title="Cliente (Top 30)"),
         y=alt.Y('facturas_canceladas:Q', title="Facturas"),
         color=alt.Color('condicion_venta:N', title="Condición"),
         tooltip=['Cliente', 'condicion_venta', 'facturas_canceladas']
     ).properties(
-        title="🏢 Cancelaciones por Cliente y Condición",
-        height=400
-    ).configure_axisX(
-        labelAngle=-45 # Inclinamos los nombres para que quepan todos
+        title="🏢 Top 30 Clientes con más Cancelaciones",
+        height=450
     )
 
-    st.altair_chart(chart, use_container_width=True)
+    # Aplicamos la configuración de los ejes por separado para evitar errores de concatenación
+    st.altair_chart(chart.configure_axisX(labelAngle=-45), use_container_width=True)
 
 def grafica_proveedores_altair(df):
-    # Agregamos la de proveedores que pediste
-    data = df.groupby(['Proveedor', 'condicion_venta'], as_index=False)['facturas_canceladas'].sum()
+    # 1. Identificamos los 30 proveedores que más suman en total
+    top_30_nombres = (
+        df.groupby('Proveedor')['facturas_canceladas']
+        .sum()
+        .nlargest(30)
+        .index
+    )
+    
+    # 2. Filtramos el dataframe original
+    df_top = df[df['Proveedor'].isin(top_30_nombres)]
+    
+    # 3. Agrupamos
+    data = df_top.groupby(['Proveedor', 'condicion_venta'], as_index=False)['facturas_canceladas'].sum()
     
     chart = alt.Chart(data).mark_bar().encode(
-        x=alt.X('Proveedor:N', sort='-y', title="Proveedor"),
+        x=alt.X('Proveedor:N', sort='-y', title="Proveedor (Top 30)"),
         y=alt.Y('facturas_canceladas:Q', title="Facturas"),
-        color=alt.Color('condicion_venta:N', scale=alt.Scale(scheme='category10')),
+        color=alt.Color('condicion_venta:N', scale=alt.Scale(scheme='category10'), title="Condición"),
         tooltip=['Proveedor', 'condicion_venta', 'facturas_canceladas']
     ).properties(
-        title="🚜 Cancelaciones por Proveedor",
-        height=400
-    ).configure_axisX(
-        labelAngle=-45
+        title="🚜 Top 30 Proveedores con más Cancelaciones",
+        height=450
     )
 
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart.configure_axisX(labelAngle=-45), use_container_width=True)
 
 def mostrar(config):
     st.title("🚫 Panel de Cancelaciones")
