@@ -124,7 +124,13 @@ def grafica_cancelaciones_mes(df, sucursal_label):
         title=f"Cancelaciones por mes – {sucursal_label}",
     )
 
-    fig.update_traces(textposition="outside")
+    fig.update_traces(
+        texttemplate="%{y}",
+        textposition="outside",
+        hovertemplate="<b>%{x}</b><br>Facturas: %{y}<extra></extra>"
+    )
+
+
     fig.update_layout(yaxis=dict(tickformat=","))
 
     st.plotly_chart(fig, use_container_width=True)
@@ -147,7 +153,12 @@ def grafica_top_vendedores(df, sucursal_label):
         title=f"👤 Top 10 Vendedores – {sucursal_label}",
     )
 
-    fig.update_traces(textposition="outside")
+    fig.update_traces(
+        texttemplate="%{y}",
+        textposition="outside",
+        hovertemplate="<b>%{x}</b><br>Facturas: %{y}<extra></extra>"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -175,7 +186,12 @@ def grafica_top_clientes(df, sucursal_label):
         title=f"🏢 Top 10 Clientes – {sucursal_label}",
     )
 
-    fig.update_traces(textposition="outside")
+    fig.update_traces(
+    texttemplate="%{y}",
+        textposition="outside",
+        hovertemplate="<b>%{x}</b><br>Facturas: %{y}<br>Condición: %{legendgroup}<extra></extra>"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -205,7 +221,12 @@ def grafica_top_proveedores(df, sucursal_label):
         title=f"🏭 Top 10 Proveedores – {sucursal_label}",
     )
 
-    fig.update_traces(textposition="outside")
+    fig.update_traces(
+        texttemplate="%{y}",
+        textposition="outside",
+        hovertemplate="<b>%{x}</b><br>Facturas: %{y}<br>Condición: %{legendgroup}<extra></extra>"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 
