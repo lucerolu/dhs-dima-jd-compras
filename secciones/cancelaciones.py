@@ -1,4 +1,3 @@
-# secciones/cancelaciones.py
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -16,124 +15,68 @@ def render_descripcion():
 
 def cargar_datos():
     df = obtener_vista("vw_cancelaciones_clientes_detalle")
-    if df.empty:
+    if df is None or df.empty:
         st.warning("No hay datos disponibles de cancelaciones.")
         return None
 
-    # -------------------------
-    # Tipos numéricos seguros
-    # -------------------------
-    df["facturas_canceladas"] = (
-        pd.to_numeric(df["facturas_canceladas"], errors="coerce")
-        .fillna(0)
-        .astype(int)
-    )
-
+    # Limpieza de tipos de datos
+    df["facturas_canceladas"] = pd.to_numeric(df["facturas_canceladas"], errors="coerce").fillna(0)
     df["mes"] = pd.to_numeric(df["mes"], errors="coerce")
+    df["anio"] = pd.to_numeric(df["anio"], errors="coerce")
 
-    # -------------------------
-    # Normalizar textos (CLAVE)
-    # -------------------------
-    for col in ["Proveedor", "Cliente", "vendedor", "sucursal", "condicion_venta"]:
+    # Normalizar textos
+    columnas_texto = ["Proveedor", "Cliente", "vendedor", "sucursal", "condicion_venta"]
+    for col in columnas_texto:
         if col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
-
-    # -------------------------
-    # Meses en español
-    # -------------------------
-    meses_es = {
-        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
-        5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
-        9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
-    }
-
-    df["mes_nombre"] = df["mes"].map(meses_es).fillna("Mes inválido")
+            df[col] = df[col].astype(str).str.strip().str.upper()
 
     return df
 
-
-
 def filtrar_datos(df):
-    # Inyectamos CSS para forzar el despliegue hacia abajo
-    # Esto busca el contenedor del menú desplegable y le quita la posición superior negativa
-    st.markdown(
-        """
-        <style>
-            div[data-baseweb="popover"] {
-                margin-top: 4px !important;
-                top: auto !important;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    # CSS para mejorar la visibilidad de los selectores
+    st.markdown("<style>div[data-baseweb='popover'] { margin-top: 4px !important; }</style>", unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     
     with col1:
-        años_disponibles = sorted(df['anio'].unique())
-        año_sel = st.radio(
-            "Selecciona el año",
-            años_disponibles,
-            index=len(años_disponibles) - 1,
-            horizontal=True,
-            key="cancel_anio"
-        )
+        años_disponibles = sorted(df['anio'].dropna().unique().astype(int))
+        año_sel = st.radio("Selecciona el año", años_disponibles, index=len(años_disponibles)-1, horizontal=True, key="cancel_anio")
     
-    df_filtrado = df[df['anio'] == año_sel]
+    df_filtrado = df[df['anio'] == año_sel].copy()
 
     with col2:
         sucursales = sorted(df_filtrado['sucursal'].dropna().unique())
-        opciones_sucursal = ["Todos"] + sucursales
-        sucursal_sel = st.selectbox(
-            "Selecciona la sucursal",
-            options=opciones_sucursal,
-            index=0,
-            key="cancel_sucursal"
-        )
+        opciones_sucursal = ["Todas las sucursales"] + sucursales
+        sucursal_sel = st.selectbox("Selecciona la sucursal", options=opciones_sucursal, index=0, key="cancel_sucursal")
 
-    # Quitamos el st.container(height=150) que estorbaba
-    
-    if sucursal_sel != "Todos":
+    if sucursal_sel != "Todas las sucursales":
         df_filtrado = df_filtrado[df_filtrado['sucursal'] == sucursal_sel]
     
-    label = "Todas las sucursales" if sucursal_sel == "Todos" else sucursal_sel
-    return df_filtrado, label
-
+    return df_filtrado, sucursal_sel
 
 def grafica_cancelaciones_mes(df, sucursal_label):
-    cancelaciones_mes = (
-        df.groupby("mes", as_index=False)["facturas_canceladas"]
-        .sum()
-        .sort_values("mes")
-    )
-
+    # Agrupamos por mes (número) para mantener el orden
+    meses_data = df.groupby(["mes"], as_index=False)["facturas_canceladas"].sum().sort_values("mes")
+    
     meses_es = {
-        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
-        5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
-        9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+        7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
     }
-
-    cancelaciones_mes["mes_nombre"] = cancelaciones_mes["mes"].map(meses_es)
+    meses_data["mes_nombre"] = meses_data["mes"].map(meses_es)
 
     fig = px.bar(
-        cancelaciones_mes,
+        meses_data,
         x="mes_nombre",
         y="facturas_canceladas",
-        title=f"Cancelaciones por mes – {sucursal_label}",
+        title=f"📊 Cancelaciones por Mes – {sucursal_label}",
+        text_auto='.0f',
+        color_discrete_sequence=['#3366CC']
     )
 
-    fig.update_traces(
-        texttemplate="%{y:,}",
-        textposition="outside",
-        hovertemplate="<b>%{x}</b><br>Facturas: %{y:,}<extra></extra>"
-    )
-
-    fig.update_layout(yaxis=dict(tickformat=","))
-
+    # Forzar orden cronológico en el eje X
+    fig.update_xaxes(categoryorder='array', categoryarray=list(meses_es.values()))
+    fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)
-
-
 
 def grafica_top_vendedores(df, sucursal_label):
     top_vendedores = (
@@ -145,106 +88,77 @@ def grafica_top_vendedores(df, sucursal_label):
 
     fig = px.bar(
         top_vendedores,
-        x="vendedor",
-        y="facturas_canceladas",
+        x="facturas_canceladas",
+        y="vendedor",
+        orientation='h', # Horizontal para leer mejor los nombres largos
         title=f"👤 Top 10 Vendedores – {sucursal_label}",
+        text_auto='.0f',
+        color="facturas_canceladas",
+        color_continuous_scale="Blues"
     )
-
-    fig.update_traces(
-        texttemplate="%{y:,}",
-        textposition="outside",
-        hovertemplate="<b>%{x}</b><br>Facturas: %{y:,}<extra></extra>"
-    )
-
-
+    fig.update_layout(yaxis={'categoryorder':'total ascending'})
     st.plotly_chart(fig, use_container_width=True)
-
-
 
 def grafica_top_clientes(df, sucursal_label):
-    base = (
-        df.groupby(["Cliente", "condicion_venta"], as_index=False)["facturas_canceladas"]
-        .sum()
-    )
+    # Identificar los top 10 clientes primero
+    top_10_list = df.groupby("Cliente")["facturas_canceladas"].sum().nlargest(10).index
+    df_top = df[df["Cliente"].isin(top_10_list)]
 
-    top_clientes = (
-        base.groupby("Cliente", as_index=False)["facturas_canceladas"]
-        .sum()
-        .sort_values("facturas_canceladas", ascending=False)
-        .head(10)
-        .merge(base, on="Cliente")
-    )
+    # Agrupar por Cliente y Condición para la gráfica apilada o agrupada
+    plot_data = df_top.groupby(["Cliente", "condicion_venta"], as_index=False)["facturas_canceladas"].sum()
 
     fig = px.bar(
-        top_clientes,
+        plot_data,
         x="Cliente",
-        y="facturas_canceladas_y",
+        y="facturas_canceladas",
         color="condicion_venta",
         title=f"🏢 Top 10 Clientes – {sucursal_label}",
+        barmode="group",
+        text_auto='.0f'
     )
-
-    fig.update_traces(
-        texttemplate="%{y:,}",
-        textposition="outside",
-        hovertemplate="<b>%{x}</b><br>Facturas: %{y:,}<br>Condición: %{legendgroup}<extra></extra>"
-    )
-
-
+    fig.update_xaxes(tickangle=45)
     st.plotly_chart(fig, use_container_width=True)
-
-
-
-
 
 def grafica_top_proveedores(df, sucursal_label):
-    base = (
-        df.groupby(["Proveedor", "condicion_venta"], as_index=False)["facturas_canceladas"]
-        .sum()
-    )
+    # Identificar los top 10 proveedores
+    top_10_list = df.groupby("Proveedor")["facturas_canceladas"].sum().nlargest(10).index
+    df_top = df[df["Proveedor"].isin(top_10_list)]
 
-    top_proveedores = (
-        base.groupby("Proveedor", as_index=False)["facturas_canceladas"]
-        .sum()
-        .sort_values("facturas_canceladas", ascending=False)
-        .head(10)
-        .merge(base, on="Proveedor")
-    )
+    plot_data = df_top.groupby(["Proveedor", "condicion_venta"], as_index=False)["facturas_canceladas"].sum()
 
     fig = px.bar(
-        top_proveedores,
+        plot_data,
         x="Proveedor",
-        y="facturas_canceladas_y",
+        y="facturas_canceladas",
         color="condicion_venta",
         title=f"🏭 Top 10 Proveedores – {sucursal_label}",
+        barmode="group",
+        text_auto='.0f'
     )
-
-    fig.update_traces(
-        texttemplate="%{y:,}",
-        textposition="outside",
-        hovertemplate="<b>%{x}</b><br>Facturas: %{y:,}<br>Condición: %{legendgroup}<extra></extra>"
-    )
-
-
+    fig.update_xaxes(tickangle=45)
     st.plotly_chart(fig, use_container_width=True)
 
-
-
 def mostrar(config):
-    st.title("Cancelaciones")
-
+    st.title("🚫 Panel de Cancelaciones")
     render_descripcion()
 
-    # 1. Carga
     df_raw = cargar_datos()
     if df_raw is None:
         return
 
-    # 2. Filtros
     df_filtrado, sucursal_label = filtrar_datos(df_raw)
 
-    st.markdown("---")
+    if df_filtrado.empty:
+        st.info("No hay datos para los filtros seleccionados.")
+        return
 
-    # 3. Gráficas en orden scannable
+    st.markdown("---")
+    
+    # Métricas rápidas opcionales
+    total_canc = df_filtrado["facturas_canceladas"].sum()
+    st.metric("Total Facturas Canceladas", f"{total_canc:,.0f}")
+
+    # Gráficas
     grafica_cancelaciones_mes(df_filtrado, sucursal_label)
     
     col_a, col_b = st.columns(2)
