@@ -103,102 +103,111 @@ def filtrar_datos(df):
 
 def grafica_cancelaciones_mes(df, sucursal_label):
     cancelaciones_mes = (
-        df.groupby(['mes', 'mes_nombre'], as_index=False)
-        ['facturas_canceladas']
+        df.groupby("mes", as_index=False)["facturas_canceladas"]
         .sum()
-        .sort_values('mes')
+        .sort_values("mes")
     )
+
+    meses_es = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+        5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+        9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
+
+    cancelaciones_mes["mes_nombre"] = cancelaciones_mes["mes"].map(meses_es)
 
     fig = px.bar(
         cancelaciones_mes,
-        x='mes_nombre',
-        y='facturas_canceladas',
-        text=cancelaciones_mes['facturas_canceladas'].astype(str),
-        labels={'mes_nombre': 'Mes', 'facturas_canceladas': 'Facturas canceladas'},
+        x="mes_nombre",
+        y="facturas_canceladas",
+        text="facturas_canceladas",
         title=f"Cancelaciones por mes – {sucursal_label}",
     )
 
-    fig.update_traces(textposition='outside')
-    fig.update_layout(
-        yaxis=dict(tickformat=","),
-        uniformtext_minsize=10,
-        uniformtext_mode='show'
-    )
+    fig.update_traces(textposition="outside")
+    fig.update_layout(yaxis=dict(tickformat=","))
 
     st.plotly_chart(fig, use_container_width=True)
 
 
+
 def grafica_top_vendedores(df, sucursal_label):
     top_vendedores = (
-        df.groupby('vendedor', as_index=False)
-        .agg({'facturas_canceladas': 'sum'})
-        .sort_values('facturas_canceladas', ascending=False)
+        df.groupby("vendedor", as_index=False)["facturas_canceladas"]
+        .sum()
+        .sort_values("facturas_canceladas", ascending=False)
         .head(10)
     )
 
     fig = px.bar(
         top_vendedores,
-        x='vendedor',
-        y='facturas_canceladas',
-        text='facturas_canceladas',
-        title=f"👤 Top 10 Vendedores - {sucursal_label}",
-        labels={'vendedor': 'Vendedor', 'facturas_canceladas': 'Facturas'}
+        x="vendedor",
+        y="facturas_canceladas",
+        text="facturas_canceladas",
+        title=f"👤 Top 10 Vendedores – {sucursal_label}",
     )
-    fig.update_traces(textposition='outside')
+
+    fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)
 
+
+
 def grafica_top_clientes(df, sucursal_label):
-    top_clientes = (
+    base = (
         df.groupby(["Cliente", "condicion_venta"], as_index=False)["facturas_canceladas"]
         .sum()
-        .query("facturas_canceladas > 0")
-        .sort_values("facturas_canceladas", ascending=False)
-        .head(10)
     )
 
-    if top_clientes.empty:
-        st.info("No hay clientes con cancelaciones.")
-        return
+    top_clientes = (
+        base.groupby("Cliente", as_index=False)["facturas_canceladas"]
+        .sum()
+        .sort_values("facturas_canceladas", ascending=False)
+        .head(10)
+        .merge(base, on="Cliente")
+    )
 
     fig = px.bar(
         top_clientes,
         x="Cliente",
-        y="facturas_canceladas",
+        y="facturas_canceladas_y",
         color="condicion_venta",
-        text=top_clientes["facturas_canceladas"].astype(str),
+        text="facturas_canceladas_y",
         title=f"🏢 Top 10 Clientes – {sucursal_label}",
-        labels={"facturas_canceladas": "Facturas"}
     )
 
-    fig.update_traces(textposition="outside", width=0.6)
+    fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)
 
 
+
+
+
 def grafica_top_proveedores(df, sucursal_label):
-    top_proveedores = (
+    base = (
         df.groupby(["Proveedor", "condicion_venta"], as_index=False)["facturas_canceladas"]
         .sum()
-        .query("facturas_canceladas > 0")
-        .sort_values("facturas_canceladas", ascending=False)
-        .head(10)
     )
 
-    if top_proveedores.empty:
-        st.info("No hay proveedores con cancelaciones.")
-        return
+    top_proveedores = (
+        base.groupby("Proveedor", as_index=False)["facturas_canceladas"]
+        .sum()
+        .sort_values("facturas_canceladas", ascending=False)
+        .head(10)
+        .merge(base, on="Proveedor")
+    )
 
     fig = px.bar(
         top_proveedores,
         x="Proveedor",
-        y="facturas_canceladas",
+        y="facturas_canceladas_y",
         color="condicion_venta",
-        text=top_proveedores["facturas_canceladas"].astype(str),
+        text="facturas_canceladas_y",
         title=f"🏭 Top 10 Proveedores – {sucursal_label}",
-        labels={"facturas_canceladas": "Facturas"}
     )
 
-    fig.update_traces(textposition="outside", width=0.6)
+    fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)
+
 
 
 def mostrar(config):
