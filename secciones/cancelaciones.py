@@ -20,7 +20,9 @@ def cargar_datos():
         st.warning("No hay datos disponibles de cancelaciones.")
         return None
 
-    # Tipos seguros
+    # -------------------------
+    # Tipos numéricos seguros
+    # -------------------------
     df["facturas_canceladas"] = (
         pd.to_numeric(df["facturas_canceladas"], errors="coerce")
         .fillna(0)
@@ -29,6 +31,16 @@ def cargar_datos():
 
     df["mes"] = pd.to_numeric(df["mes"], errors="coerce")
 
+    # -------------------------
+    # Normalizar textos (CLAVE)
+    # -------------------------
+    for col in ["Proveedor", "Cliente", "vendedor", "sucursal", "condicion_venta"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+
+    # -------------------------
+    # Meses en español
+    # -------------------------
     meses_es = {
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
         5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
@@ -38,6 +50,7 @@ def cargar_datos():
     df["mes_nombre"] = df["mes"].map(meses_es).fillna("Mes inválido")
 
     return df
+
 
 
 def filtrar_datos(df):
@@ -84,7 +97,9 @@ def filtrar_datos(df):
     if sucursal_sel != "Todos":
         df_filtrado = df_filtrado[df_filtrado['sucursal'] == sucursal_sel]
     
-    return df_filtrado, sucursal_sel
+    label = "Todas las sucursales" if sucursal_sel == "Todos" else sucursal_sel
+    return df_filtrado, label
+
 
 def grafica_cancelaciones_mes(df, sucursal_label):
     cancelaciones_mes = (
@@ -134,43 +149,57 @@ def grafica_top_vendedores(df, sucursal_label):
 
 def grafica_top_clientes(df, sucursal_label):
     top_clientes = (
-        df.groupby(['Cliente', 'condicion_venta'], as_index=False)
-        .agg({'facturas_canceladas': 'sum'})
-        .sort_values('facturas_canceladas', ascending=False)
+        df.groupby(["Cliente", "condicion_venta"], as_index=False)["facturas_canceladas"]
+        .sum()
+        .query("facturas_canceladas > 0")
+        .sort_values("facturas_canceladas", ascending=False)
         .head(10)
     )
+
+    if top_clientes.empty:
+        st.info("No hay clientes con cancelaciones.")
+        return
 
     fig = px.bar(
         top_clientes,
-        x='Cliente',
-        y='facturas_canceladas',
-        color='condicion_venta',
-        text='facturas_canceladas',
-        title=f"Top 10 Clientes - {sucursal_label}",
-        labels={'facturas_canceladas': 'Facturas'}
+        x="Cliente",
+        y="facturas_canceladas",
+        color="condicion_venta",
+        text=top_clientes["facturas_canceladas"].astype(str),
+        title=f"🏢 Top 10 Clientes – {sucursal_label}",
+        labels={"facturas_canceladas": "Facturas"}
     )
-    fig.update_traces(textposition='outside')
+
+    fig.update_traces(textposition="outside", width=0.6)
     st.plotly_chart(fig, use_container_width=True)
+
 
 def grafica_top_proveedores(df, sucursal_label):
     top_proveedores = (
-        df.groupby(['Proveedor', 'condicion_venta'], as_index=False)
-        .agg({'facturas_canceladas': 'sum'})
-        .sort_values('facturas_canceladas', ascending=False)
+        df.groupby(["Proveedor", "condicion_venta"], as_index=False)["facturas_canceladas"]
+        .sum()
+        .query("facturas_canceladas > 0")
+        .sort_values("facturas_canceladas", ascending=False)
         .head(10)
     )
 
+    if top_proveedores.empty:
+        st.info("No hay proveedores con cancelaciones.")
+        return
+
     fig = px.bar(
         top_proveedores,
-        x='Proveedor',
-        y='facturas_canceladas',
-        color='condicion_venta',
-        text='facturas_canceladas',
-        title=f"Top 10 Proveedores - {sucursal_label}",
-        labels={'facturas_canceladas': 'Facturas'}
+        x="Proveedor",
+        y="facturas_canceladas",
+        color="condicion_venta",
+        text=top_proveedores["facturas_canceladas"].astype(str),
+        title=f"🏭 Top 10 Proveedores – {sucursal_label}",
+        labels={"facturas_canceladas": "Facturas"}
     )
-    fig.update_traces(textposition='outside')
+
+    fig.update_traces(textposition="outside", width=0.6)
     st.plotly_chart(fig, use_container_width=True)
+
 
 def mostrar(config):
     st.title("Cancelaciones")
