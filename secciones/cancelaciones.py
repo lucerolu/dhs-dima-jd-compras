@@ -19,15 +19,26 @@ def cargar_datos():
     if df.empty:
         st.warning("No hay datos disponibles de cancelaciones.")
         return None
-    
-    # Meses en español
+
+    # Tipos seguros
+    df["facturas_canceladas"] = (
+        pd.to_numeric(df["facturas_canceladas"], errors="coerce")
+        .fillna(0)
+        .astype(int)
+    )
+
+    df["mes"] = pd.to_numeric(df["mes"], errors="coerce")
+
     meses_es = {
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
         5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
         9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
     }
-    df["mes_nombre"] = df["mes"].map(meses_es)
+
+    df["mes_nombre"] = df["mes"].map(meses_es).fillna("Mes inválido")
+
     return df
+
 
 def filtrar_datos(df):
     # Inyectamos CSS para forzar el despliegue hacia abajo
@@ -78,7 +89,8 @@ def filtrar_datos(df):
 def grafica_cancelaciones_mes(df, sucursal_label):
     cancelaciones_mes = (
         df.groupby(['mes', 'mes_nombre'], as_index=False)
-        .agg({'facturas_canceladas': 'sum'})
+        ['facturas_canceladas']
+        .sum()
         .sort_values('mes')
     )
 
@@ -86,13 +98,20 @@ def grafica_cancelaciones_mes(df, sucursal_label):
         cancelaciones_mes,
         x='mes_nombre',
         y='facturas_canceladas',
-        text='facturas_canceladas',
-        labels={'mes_nombre': 'Mes', 'facturas_canceladas': 'Facturas'},
-        title=f"Cancelaciones por mes - {sucursal_label}",
-        color_discrete_sequence=['#EF553B'] # Rojo para cancelaciones
+        text=cancelaciones_mes['facturas_canceladas'].astype(str),
+        labels={'mes_nombre': 'Mes', 'facturas_canceladas': 'Facturas canceladas'},
+        title=f"Cancelaciones por mes – {sucursal_label}",
     )
+
     fig.update_traces(textposition='outside')
+    fig.update_layout(
+        yaxis=dict(tickformat=","),
+        uniformtext_minsize=10,
+        uniformtext_mode='show'
+    )
+
     st.plotly_chart(fig, use_container_width=True)
+
 
 def grafica_top_vendedores(df, sucursal_label):
     top_vendedores = (
