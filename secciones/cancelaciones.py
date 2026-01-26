@@ -8,17 +8,29 @@ def cargar_datos():
     if df is None or df.empty:
         return None
 
-    # FORZADO DE TIPOS: Altair necesita saber qué es número y qué es texto
+    # Asegurar tipos numéricos
     df["facturas_canceladas"] = pd.to_numeric(df["facturas_canceladas"], errors="coerce").fillna(0)
     df["mes"] = pd.to_numeric(df["mes"], errors="coerce").fillna(0).astype(int)
     df["anio"] = pd.to_numeric(df["anio"], errors="coerce").fillna(0).astype(int)
     
-    # Limpieza de strings
-    for col in ["vendedor", "Cliente", "Proveedor", "sucursal", "condicion_venta", "mes_nombre"]:
+    # DICCIONARIO MAESTRO PARA MESES EN ESPAÑOL
+    meses_es = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+        5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+        9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
+    
+    # Sobreescribimos mes_nombre basado en el número del mes
+    df["mes_nombre"] = df["mes"].map(meses_es)
+    
+    # Limpieza de los demás strings
+    columnas_txt = ["vendedor", "Cliente", "Proveedor", "sucursal", "condicion_venta"]
+    for col in columnas_txt:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip().str.upper()
     
     return df
+
 
 def filtrar_datos(df):
     col1, col2 = st.columns(2)
@@ -38,21 +50,41 @@ def filtrar_datos(df):
     return df_f, sucursal_sel
 
 def grafica_mes_altair(df):
-    # Altair agrupa automáticamente si se lo pedimos con 'sum(facturas_canceladas)'
-    chart = alt.Chart(df).mark_bar(color='#EF553B').encode(
-        x=alt.X('mes_nombre:N', sort=['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 
-                                     'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'],
+    # Lista para asegurar el orden cronológico exacto
+    orden_meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+    # Base del gráfico
+    base = alt.Chart(df).encode(
+        x=alt.X('mes_nombre:N', 
+                sort=orden_meses, 
                 title="Mes"),
-        y=alt.Y('sum(facturas_canceladas):Q', title="Total Facturas"),
-        tooltip=['mes_nombre', 'sum(facturas_canceladas)']
-    ).properties(title="📅 Cancelaciones por Mes", height=400)
-    
-    # Añadir etiquetas de texto sobre las barras
-    text = chart.mark_text(dy=-10, color='white').encode(
+        y=alt.Y('sum(facturas_canceladas):Q', 
+                title="Total Facturas")
+    )
+
+    # Las barras
+    bars = base.mark_bar(color='#EF553B').encode(
+        tooltip=[
+            alt.Tooltip('mes_nombre:N', title='Mes'),
+            alt.Tooltip('sum(facturas_canceladas):Q', title='Facturas', format='.0f')
+        ]
+    )
+
+    # Las etiquetas sobre las barras (Cambié el color a 'black' para contraste, o 'white' si usas tema oscuro)
+    text = base.mark_text(dy=-10, color='gray', fontWeight='bold').encode(
         text=alt.Text('sum(facturas_canceladas):Q', format='.0f')
     )
+
+    chart = (bars + text).properties(
+        title="Cancelaciones por Mes",
+        height=400
+    ).configure_axisX(
+        labelAngle=0,          # <--- Forza la posición horizontal
+        labelFontSize=12       # Opcional: reduce un poco la letra si los meses chocan
+    )
     
-    st.altair_chart(chart + text, use_container_width=True)
+    st.altair_chart(chart, use_container_width=True)
 
 def grafica_vendedores_altair(df):
     # Sumamos todos sin filtrar Top 10
@@ -67,8 +99,11 @@ def grafica_vendedores_altair(df):
         color=alt.Color('facturas_canceladas:Q', scale=alt.Scale(scheme='reds'), legend=None),
         tooltip=['vendedor', 'facturas_canceladas']
     ).properties(
-        title="👤 Cancelaciones por Vendedor (Total)",
+        title="Cancelaciones por Vendedor (Total)",
         height=altura
+    ).configure_axisY(
+        labelLimit=300,  # <--- Aumenta el límite de píxeles para el nombre (ajusta según necesites)
+        labelFontSize=12
     )
     
     st.altair_chart(chart, use_container_width=True)
@@ -95,12 +130,20 @@ def grafica_clientes_altair(df):
         color=alt.Color('condicion_venta:N', title="Condición"),
         tooltip=['Cliente', 'condicion_venta', 'facturas_canceladas']
     ).properties(
-        title="🏢 Top 30 Clientes con más Cancelaciones",
+        title="Top 30 Clientes con más Cancelaciones",
         height=450
     )
 
     # Aplicamos la configuración de los ejes por separado para evitar errores de concatenación
-    st.altair_chart(chart.configure_axisX(labelAngle=-45), use_container_width=True)
+    st.altair_chart(
+        chart.configure_axisX(
+            labelAngle=-45, 
+            labelOverlap=False,  # <--- Esto obliga a mostrar todos los nombres
+            labelFontSize=10,    # Un poco más pequeña para que quepan
+            labelLimit=200       # Evita que se corten si son muy largos hacia abajo
+        ), 
+        use_container_width=True
+    )
 
 def grafica_proveedores_altair(df):
     # 1. Identificamos los 30 proveedores que más suman en total
@@ -123,14 +166,22 @@ def grafica_proveedores_altair(df):
         color=alt.Color('condicion_venta:N', scale=alt.Scale(scheme='category10'), title="Condición"),
         tooltip=['Proveedor', 'condicion_venta', 'facturas_canceladas']
     ).properties(
-        title="🚜 Top 30 Proveedores con más Cancelaciones",
+        title="Top 30 Proveedores con más Cancelaciones",
         height=450
     )
 
-    st.altair_chart(chart.configure_axisX(labelAngle=-45), use_container_width=True)
+    st.altair_chart(
+        chart.configure_axisX(
+            labelAngle=-45, 
+            labelOverlap=False,  # <--- Esto obliga a mostrar todos los nombres
+            labelFontSize=10,    # Un poco más pequeña para que quepan
+            labelLimit=200       # Evita que se corten si son muy largos hacia abajo
+        ), 
+        use_container_width=True
+    )
 
 def mostrar(config):
-    st.title("🚫 Panel de Cancelaciones")
+    st.title("Cancelaciones")
     
     df_raw = cargar_datos()
     if df_raw is None: return
@@ -143,7 +194,7 @@ def mostrar(config):
 
     st.markdown("---")
     
-    # Una gráfica debajo de la otra para máxima visibilidad
+
     st.subheader("Análisis Temporal")
     grafica_mes_altair(df_filtrado)
     
