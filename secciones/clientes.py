@@ -126,7 +126,7 @@ def mapa_facturacion_clientes(df_clientes):
 def mostrar(config):
     st.title("Clientes / Ubicación")
 
-    st.markdown("Análisis geográfico de facturación por ubicación de clientes.")
+    st.markdown("***** En producción *********")
 
     df_base = obtener_vista("vw_dashboard_ubicacion_clientes_mes")
     if df_base.empty:
