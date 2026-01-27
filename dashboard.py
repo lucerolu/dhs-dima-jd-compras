@@ -65,7 +65,7 @@ if st.session_state["authentication_status"] is True:
             [
                 "Compras vs Meta",
                 "Ventas",
-                #"Clientes / Ubicación",
+                "Clientes / Ubicación",
                 "Vendedores",
                 "Cancelaciones"
             ]
