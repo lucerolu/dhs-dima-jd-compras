@@ -110,7 +110,7 @@ def mapa_facturacion_clientes(df_clientes):
     )
 
     fig.update_layout(
-        mapbox_style="carto-positron",
+        mapbox_style="open-street-map",
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         coloraxis_showscale=True,
         coloraxis_colorbar=dict(title="Venta Total")
