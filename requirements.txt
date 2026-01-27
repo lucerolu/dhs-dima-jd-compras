@@ -3,7 +3,7 @@
 streamlit==1.31.0
 pandas
 pymysql
-plotly
+plotly==5.18.0
 matplotlib
 seaborn
 requests

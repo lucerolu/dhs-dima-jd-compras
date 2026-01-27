@@ -68,13 +68,18 @@ def mapa_facturacion_clientes(df_clientes):
     if df_clientes.empty:
         st.warning("No hay datos para mostrar en las coordenadas seleccionadas.")
         return
+    
+    df_clientes = df_clientes[
+        (df_clientes["venta_total"].notna()) &
+        (df_clientes["venta_total"] > 0)
+    ]
 
     # Creamos el mapa base de clientes
     fig = px.scatter_mapbox(
         df_clientes,
         lat="cliente_latitud",
         lon="cliente_longitud",
-        size="venta_total",
+        size=df_clientes["venta_total"].clip(upper=500000),
         color="venta_total", # Color basado en volumen de venta
         color_continuous_scale=px.colors.sequential.Plasma,
         size_max=35,
