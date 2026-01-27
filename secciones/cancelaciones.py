@@ -97,7 +97,10 @@ def grafica_vendedores_altair(df):
         x=alt.X('facturas_canceladas:Q', title="Total Facturas"),
         y=alt.Y('vendedor:N', sort='-x', title="Vendedor"),
         color=alt.Color('facturas_canceladas:Q', scale=alt.Scale(scheme='reds'), legend=None),
-        tooltip=['vendedor', 'facturas_canceladas']
+        tooltip=[
+            alt.Tooltip('vendedor:N', title='Nombre del Vendedor'),
+            alt.Tooltip('facturas_canceladas:Q', title='Facturas canceladas', format='.0f')
+        ]
     ).properties(
         title="Cancelaciones por Vendedor (Total)",
         height=altura
