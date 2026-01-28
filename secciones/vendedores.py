@@ -49,7 +49,7 @@ def mostrar(config):
         st.stop()
 
     # =====================================================
-    # FILTROS UI (SIEMPRE PRIMERO)
+    # FILTROS UI
     # =====================================================
     col1, col2 = st.columns(2)
 
@@ -63,28 +63,38 @@ def mostrar(config):
             key="vendedores_sucursal"
         )
 
+    # Filtrado intermedio para que el mes SIEMPRE tenga datos de la sucursal elegida
+    df_temp_sucursal = df_base.copy()
+    if sucursal_sel != "Todos":
+        df_temp_sucursal = df_temp_sucursal[df_temp_sucursal["sucursal"] == sucursal_sel]
+
     with col2:
-        meses = sorted(df_base["periodo_jd"].dropna().unique().tolist())
+        # Extraemos los meses que SÍ existen para la sucursal seleccionada
+        meses_disponibles = sorted(df_temp_sucursal["periodo_jd"].dropna().unique().tolist())
+        
+        # Si no hay meses (caso raro), evitamos que truene el selectbox
+        if not meses_disponibles:
+            st.warning("No hay meses con datos para esta sucursal.")
+            st.stop()
+
         mes_sel = st.selectbox(
             "Selecciona mes",
-            meses,
+            meses_disponibles,
             index=0,
             key="vendedores_mes"
         )
 
     # -----------------------------
-    # Aplicar filtros
+    # Aplicar filtro final
     # -----------------------------
-    df = df_base.copy()
+    # Usamos el df_temp_sucursal que ya tiene el filtro de sucursal
+    df = df_temp_sucursal[df_temp_sucursal["periodo_jd"] == mes_sel].copy()
 
-    if sucursal_sel != "Todos":
-        df = df[df["sucursal"] == sucursal_sel]
-
-    df = df[df["periodo_jd"] == mes_sel]
-
+    # IMPORTANTE: No usamos st.stop() aquí si es posible, 
+    # para que Streamlit no "olvide" dibujar el resto de la página
     if df.empty:
-        st.info("No hay datos para los filtros seleccionados")
-        st.stop()
+        st.info(f"No se encontraron datos para {sucursal_sel} en {mes_sel}")
+        return # Usamos return en lugar de stop para salir de la función limpiamente
 
     # =====================================================
     # AGRUPACIÓN POR VENDEDOR

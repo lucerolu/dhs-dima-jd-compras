@@ -120,15 +120,10 @@ def mapa_facturacion_clientes(df_clientes):
     )
 
     fig.update_layout(
-
         mapbox_style="open-street-map",
-
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
-
         coloraxis_showscale=True,
-
         coloraxis_colorbar=dict(title="Venta Total")
-
     )
     st.plotly_chart(fig, use_container_width=True, config={"scrollZoom": True})
 
@@ -139,11 +134,9 @@ def mostrar(config):
     st.title("Clientes / Ubicación")
     st.markdown("***** En producción *********")
     df_base = obtener_vista("vw_dashboard_ubicacion_clientes_mes")
-
+    
     if df_base.empty:
-
         st.warning("No hay datos disponibles.")
-
         return
 
     anio_sel, mes_sel = selector_periodo(df_base)
