@@ -187,6 +187,8 @@ def mostrar(config):
         "semaforo": "Semáforo",
     })
 
+    tabla_key = f"tabla_vendedores_{sucursal_sel}_{mes_sel}"
+
     with st.container():
         mostrar_tabla_normal(
             df_tabla,
@@ -196,5 +198,6 @@ def mostrar(config):
             ],
             resaltar_primera_columna=True,
             height=600,
+            key=tabla_key
         )
 
