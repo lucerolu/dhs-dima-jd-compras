@@ -1,4 +1,4 @@
-
+#secciones\clientes.py
 
 import streamlit as st
 import plotly.express as px
@@ -84,7 +84,7 @@ def mapa_facturacion_clientes(df_clientes):
         size=df_clientes["venta_total"].clip(upper=500000),
         color="venta_total", # Color basado en volumen de venta
         color_continuous_scale=px.colors.sequential.Plasma,
-        size_max=35,
+        #size_max=35,
         zoom=4,
         hover_name="Ciudad"
     )
@@ -134,7 +134,7 @@ def mostrar(config):
     st.title("Clientes / Ubicación")
     st.markdown("***** En producción *********")
     df_base = obtener_vista("vw_dashboard_ubicacion_clientes_mes")
-    
+
     if df_base.empty:
         st.warning("No hay datos disponibles.")
         return
