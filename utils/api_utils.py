@@ -26,7 +26,7 @@ def _get_api_config():
 # =========================================================
 # FUNCIÓN GENÉRICA PARA OBTENER CUALQUIER VISTA
 # =========================================================
-@st.cache_data(ttl=300, show_spinner="Cargando datos...")
+@st.cache_data(ttl=86400, show_spinner="Cargando datos diarios...")
 def obtener_vista(nombre_vista: str) -> pd.DataFrame:
     config = _get_api_config()
     url = f"{config['API_BASE']}/api/view/{nombre_vista}"
@@ -35,7 +35,7 @@ def obtener_vista(nombre_vista: str) -> pd.DataFrame:
         response = requests.get(
             url,
             headers=config["HEADERS"],
-            timeout=60
+            timeout=240
         )
         response.raise_for_status()
         data = response.json()

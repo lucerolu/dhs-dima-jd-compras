@@ -65,7 +65,7 @@ if st.session_state["authentication_status"] is True:
             [
                 "Compras vs Meta",
                 "Ventas",
-                "Clientes / Ubicación",
+                #"Clientes / Ubicación",
                 "Vendedores",
                 "Cancelaciones"
             ]
@@ -79,6 +79,11 @@ if st.session_state["authentication_status"] is True:
             st.rerun()
 
         st.markdown("---")
+
+        if st.button("Limpiar datos de memoria"):
+            st.cache_data.clear()  # Esto borra toda la memoria de Streamlit
+            st.rerun()
+
         mostrar_fecha_actualizacion()
 
     # ------------------- CONTENIDO PRINCIPAL -------------------
