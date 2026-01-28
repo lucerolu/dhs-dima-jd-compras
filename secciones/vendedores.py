@@ -12,14 +12,19 @@ from utils.table_utils import mostrar_tabla_normal
 # CARGA CONTROLADA DE DATOS (1 sola vez por sesión)
 # =========================================================
 def cargar_datos_vendedores():
-    if "df_vendedores_raw" not in st.session_state:
-        df = obtener_vista("vw_dashboard_meta_vendedor_jd")
-
-        if df is None or df.empty:
-            st.session_state.df_vendedores_raw = None
-        else:
-            st.session_state.df_vendedores_raw = df
-
+    # USAMOS UN TRY/EXCEPT AQUÍ TAMBIÉN
+    if "df_vendedores_raw" not in st.session_state or st.session_state.df_vendedores_raw is None:
+        try:
+            with st.spinner("Obteniendo datos..."):
+                df = obtener_vista("vw_dashboard_meta_vendedor_jd")
+                
+                if df is not None and not df.empty:
+                    st.session_state.df_vendedores_raw = df
+                else:
+                    return None
+        except Exception:
+            return None
+            
     return st.session_state.df_vendedores_raw
 
 
