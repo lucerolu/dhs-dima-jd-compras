@@ -187,10 +187,13 @@ def mostrar(config):
         "semaforo": "Semáforo",
     })
 
-    tabla_key = f"container_vendedores_{sucursal_sel}_{mes_sel}"
+    tabla_key = f"espacio_tabla_{sucursal_sel}_{mes_sel}"
 
-    # Le ponemos la key al contenedor, no a la función
-    with st.container(key=tabla_key):
+    # Creamos un hueco vacío
+    placeholder = st.empty()
+
+    # Dibujamos la tabla dentro de ese hueco
+    with placeholder.container():
         mostrar_tabla_normal(
             df_tabla,
             columnas_fijas=["vendedor"],
@@ -199,6 +202,5 @@ def mostrar(config):
             ],
             resaltar_primera_columna=True,
             height=600,
-            # Quitamos la key de aquí para que no de error
         )
 
