@@ -187,9 +187,10 @@ def mostrar(config):
         "semaforo": "Semáforo",
     })
 
-    tabla_key = f"tabla_vendedores_{sucursal_sel}_{mes_sel}"
+    tabla_key = f"container_vendedores_{sucursal_sel}_{mes_sel}"
 
-    with st.container():
+    # Le ponemos la key al contenedor, no a la función
+    with st.container(key=tabla_key):
         mostrar_tabla_normal(
             df_tabla,
             columnas_fijas=["vendedor"],
@@ -198,6 +199,6 @@ def mostrar(config):
             ],
             resaltar_primera_columna=True,
             height=600,
-            key=tabla_key
+            # Quitamos la key de aquí para que no de error
         )
 
