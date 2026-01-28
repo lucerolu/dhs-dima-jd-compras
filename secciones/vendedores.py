@@ -187,12 +187,14 @@ def mostrar(config):
         "semaforo": "Semáforo",
     })
 
-    mostrar_tabla_normal(
-        df_tabla,
-        columnas_fijas=["vendedor"],
-        columnas_numericas=[
-            "Meta", "Venta", "Costo", "Utilidad", "Margen", "% Cumplimiento"
-        ],
-        resaltar_primera_columna=True,
-        height=600,
-    )
+    with st.container():
+        mostrar_tabla_normal(
+            df_tabla,
+            columnas_fijas=["vendedor"],
+            columnas_numericas=[
+                "Meta", "Venta", "Costo", "Utilidad", "Margen", "% Cumplimiento"
+            ],
+            resaltar_primera_columna=True,
+            height=600,
+        )
+
