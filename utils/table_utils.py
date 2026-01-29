@@ -131,12 +131,6 @@ def mostrar_tabla_normal(
     # ---------------------------------
     # 🎨 CALCULAR MIN / MAX POR COLUMNA
     # ---------------------------------
-
-    # Asegurarse que todas las columnas numéricas sean float
-    for col in columnas_numericas:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-
     min_max = {}
     for col in columnas_numericas:
         if col not in columnas_sin_degradado and col in df.columns:
@@ -252,11 +246,6 @@ def mostrar_tabla_normal(
     # ---------------------------------
     # RENDER
     # ---------------------------------
-    # 🔑 KEY SEGURO PARA CLOUD Y LOCAL
-    df_bytes = pd.util.hash_pandas_object(df, index=True).values.tobytes()
-    #key_seguro = "aggrid_" + hashlib.md5(df_bytes).hexdigest()
-    key_string = f"{len(df)}_{len(df.columns)}_" + "_".join(df.columns)
-    key_seguro = "aggrid_" + hashlib.md5(key_string.encode()).hexdigest()
 
     AgGrid(
         df,
@@ -266,7 +255,7 @@ def mostrar_tabla_normal(
         use_container_width=True,
         fit_columns_on_grid_load=False,
         allow_unsafe_jscode=True,
-        key="tabla_vendedores"
+        #key=f"aggrid_{hash(pd.util.hash_pandas_object(df).sum())}"
     )
 
 
