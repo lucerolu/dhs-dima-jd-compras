@@ -1,4 +1,4 @@
-#secciones\clientes.py
+# secciones/clientes.py
 
 import streamlit as st
 import plotly.express as px
@@ -6,42 +6,49 @@ import pandas as pd
 from utils.api_utils import obtener_vista
 
 
-def obtener_datos_mapa_clientes(anio_seleccionado, mes_seleccionado):
+# ======================================================
+# 1️⃣ CARGA BASE (API → DF) | cache 24h
+# ======================================================
+@st.cache_data(ttl=86400)
+def cargar_clientes_base():
     df = obtener_vista("vw_dashboard_ubicacion_clientes_mes")
     if df.empty:
-        return pd.DataFrame()
+        raise ValueError("Vista clientes vacía, no se cachea")
+    return df
 
-    # ---- 1. Filtro y Limpieza de Coordenadas de Clientes ----
-    df = df[df["anio"] == anio_seleccionado].copy()
-        # ---- Validación geográfica y corrección de coordenadas ----
-    # Rango geográfico válido
+
+# ======================================================
+# 2️⃣ LIMPIEZA PESADA | cache 24h
+# ======================================================
+@st.cache_data(ttl=86400)
+def preparar_clientes_limpio(df_base: pd.DataFrame) -> pd.DataFrame:
+    df = df_base.copy()
+
+    # Validación geográfica
     df = df[
         (df["cliente_latitud"].between(-90, 90)) &
-        (df["cliente_longitud"].between(-180, 180))
-    ]
-
-    # Eliminar ceros
-    df = df[
+        (df["cliente_longitud"].between(-180, 180)) &
         (df["cliente_latitud"] != 0) &
         (df["cliente_longitud"] != 0)
     ]
 
-    # Detectar lat/lon invertidos (caso típico)
-    mask_invertidos = df["cliente_latitud"].abs() > 90
-    df.loc[mask_invertidos, ["cliente_latitud", "cliente_longitud"]] = (
-        df.loc[mask_invertidos, ["cliente_longitud", "cliente_latitud"]].values
-    )
-
-    # Redondear para estabilidad del mapa
+    # Redondeo para estabilidad del mapa
     df["cliente_latitud"] = df["cliente_latitud"].round(5)
     df["cliente_longitud"] = df["cliente_longitud"].round(5)
 
-    # ---- Filtro por mes ----
+    return df
+
+
+# ======================================================
+# 3️⃣ FILTRO + AGRUPACIÓN (rápido, sin cache)
+# ======================================================
+def obtener_datos_mapa_clientes(df_limpio, anio_seleccionado, mes_seleccionado):
+
+    df = df_limpio[df_limpio["anio"] == anio_seleccionado]
+
     if mes_seleccionado != "Todos":
         df = df[df["mes_nombre"] == mes_seleccionado]
 
-    # ---- Agrupación por Ubicación de Cliente ----
-    # Agrupamos para sumar ventas si hay múltiples registros en la misma ciudad/coordenada
     df_clientes = df.groupby(
         ["Estado", "Ciudad", "cliente_latitud", "cliente_longitud"],
         as_index=False
@@ -50,98 +57,99 @@ def obtener_datos_mapa_clientes(anio_seleccionado, mes_seleccionado):
         "venta_total": "sum",
         "facturas": "sum"
     })
+
     return df_clientes
 
 
-
+# ======================================================
+# SELECTORES
+# ======================================================
 def selector_periodo(df):
     st.markdown("### Filtros de periodo")
     anios = sorted(df["anio"].dropna().unique().tolist(), reverse=True)
     anio_sel = st.selectbox("Año", anios, index=0)
+
     df_anio = df[df["anio"] == anio_sel]
     meses = ["Todos"] + sorted(df_anio["mes_nombre"].dropna().unique().tolist())
     mes_sel = st.selectbox("Mes", meses, index=0)
+
     return anio_sel, mes_sel
 
 
-
+# ======================================================
+# MAPA
+# ======================================================
 def mapa_facturacion_clientes(df_clientes):
     if df_clientes.empty:
         st.warning("No hay datos para mostrar en las coordenadas seleccionadas.")
         return
 
-    df_clientes = df_clientes[
-        (df_clientes["venta_total"].notna()) &
-        (df_clientes["venta_total"] > 0)
-    ]
-
-    # Creamos el mapa base de clientes
+    df_clientes = df_clientes[df_clientes["venta_total"] > 0]
 
     fig = px.scatter_mapbox(
         df_clientes,
         lat="cliente_latitud",
         lon="cliente_longitud",
         size=df_clientes["venta_total"].clip(upper=500000),
-        color="venta_total", # Color basado en volumen de venta
+        color="venta_total",
         color_continuous_scale=px.colors.sequential.Plasma,
-        #size_max=35,
         zoom=4,
         hover_name="Ciudad"
     )
 
-    # Configuración del Tooltip (Custom Data)
     fig.update_traces(
         marker=dict(opacity=0.8),
         customdata=df_clientes[
-
-            [
-                "Estado",           # [0]
-                "venta_total",      # [1]
-                "clientes_unicos",  # [2]
-                "facturas",         # [3]
-                "cliente_latitud",  # [4]
-                "cliente_longitud"  # [5]
-            ]
+            ["Estado", "venta_total", "clientes_unicos", "facturas",
+             "cliente_latitud", "cliente_longitud"]
         ],
-
         hovertemplate=(
-
-            "<b style='font-size:14px'>📍 %{hovertext}</b><br>"
-            "<span style='color:#555'>%{customdata[0]}</span><br><br>"
+            "<b>📍 %{hovertext}</b><br>"
+            "%{customdata[0]}<br><br>"
             "<b>Venta:</b> $%{customdata[1]:,.2f}<br>"
             "<b>Clientes:</b> %{customdata[2]}<br>"
             "<b>Facturas:</b> %{customdata[3]}<br><br>"
             "<b>Lat:</b> %{customdata[4]:.4f}<br>"
             "<b>Lon:</b> %{customdata[5]:.4f}"
             "<extra></extra>"
-
         )
-
     )
 
     fig.update_layout(
         mapbox_style="open-street-map",
-        margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        coloraxis_showscale=True,
+        margin=dict(r=0, t=0, l=0, b=0),
         coloraxis_colorbar=dict(title="Venta Total")
     )
+
     st.plotly_chart(fig, use_container_width=True, config={"scrollZoom": True})
 
 
-
+# ======================================================
+# MAIN
+# ======================================================
 def mostrar(config):
 
     st.title("Clientes / Ubicación")
     st.markdown("***** En producción *********")
-    df_base = obtener_vista("vw_dashboard_ubicacion_clientes_mes")
 
-    if df_base.empty:
-        st.warning("No hay datos disponibles.")
-        return
+    # 🔥 WARM-UP (solo una vez por sesión)
+    if "warmup_clientes" not in st.session_state:
+        df_base = cargar_clientes_base()
+        preparar_clientes_limpio(df_base)
+        st.session_state["warmup_clientes"] = True
 
-    anio_sel, mes_sel = selector_periodo(df_base)
-    df_clientes = obtener_datos_mapa_clientes(anio_sel, mes_sel)
+    # Uso normal
+    df_base = cargar_clientes_base()
+    df_limpio = preparar_clientes_limpio(df_base)
 
-    st.subheader(f"Distribución de ventas por domicilio fiscal - {mes_sel} {anio_sel}")
+    anio_sel, mes_sel = selector_periodo(df_limpio)
+
+    df_clientes = obtener_datos_mapa_clientes(
+        df_limpio, anio_sel, mes_sel
+    )
+
+    st.subheader(
+        f"Distribución de ventas por domicilio fiscal - {mes_sel} {anio_sel}"
+    )
 
     mapa_facturacion_clientes(df_clientes)
