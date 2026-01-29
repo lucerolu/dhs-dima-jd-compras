@@ -11,21 +11,40 @@ from utils.table_utils import mostrar_tabla_normal
 # =========================================================
 # CARGA CONTROLADA DE DATOS (1 sola vez por sesión)
 # =========================================================
+@st.cache_data(ttl=86400)
 def cargar_datos_vendedores():
-    # USAMOS UN TRY/EXCEPT AQUÍ TAMBIÉN
-    if "df_vendedores_raw" not in st.session_state or st.session_state.df_vendedores_raw is None:
-        try:
-            with st.spinner("Obteniendo datos..."):
-                df = obtener_vista("vw_dashboard_meta_vendedor_jd")
-                
-                if df is not None and not df.empty:
-                    st.session_state.df_vendedores_raw = df
-                else:
-                    return None
-        except Exception:
-            return None
-            
-    return st.session_state.df_vendedores_raw
+    try:
+        with st.spinner("Obteniendo datos..."):
+            df = obtener_vista("vw_dashboard_meta_vendedor_jd")
+            if df is not None and not df.empty:
+                return df
+            else:
+                return pd.DataFrame()  # mejor que None, evita errores
+    except Exception:
+        return pd.DataFrame()
+
+
+
+@st.cache_data(ttl=86400)
+def filtrar_por_anio(df, anio):
+    return df[df["anio"] == anio].copy()
+
+@st.cache_data(ttl=86400)
+def agrupar_por_vendedor(df_filtrado):
+    return (
+        df_filtrado.groupby("vendedor", as_index=False)
+        .agg({
+            "meta_vendedor": "first",
+            "venta_real": "sum",
+            "costo_real": "sum",
+            "utilidad_real": "sum",
+            "margen_real": "mean",
+            "porcentaje_cumplimiento": "mean",
+            "semaforo": "max",
+        })
+    )
+
+
 
 
 # =========================================================
@@ -44,10 +63,8 @@ def mostrar(config):
         st.warning("No hay datos disponibles de vendedores")
         st.stop()
 
-    # -----------------------------
-    # FILTRO FIJO: AÑO
-    # -----------------------------
-    df_base = df_raw[df_raw["anio"] == 2026].copy()
+    df_base = filtrar_por_anio(df_raw, 2026)
+
 
     if df_base.empty:
         st.info("No hay datos para el año seleccionado")
@@ -92,34 +109,15 @@ def mostrar(config):
     # -----------------------------
     # Aplicar filtro final
     # -----------------------------
-    # Usamos el df_temp_sucursal que ya tiene el filtro de sucursal
-    df = df_temp_sucursal[df_temp_sucursal["periodo_jd"] == mes_sel].copy()
+    df_filtrado = df_temp_sucursal[
+        df_temp_sucursal["periodo_jd"] == mes_sel
+    ].copy()
 
-    # IMPORTANTE: No usamos st.stop() aquí si es posible, 
-    # para que Streamlit no "olvide" dibujar el resto de la página
-    if df.empty:
+    if df_filtrado.empty:
         st.info(f"No se encontraron datos para {sucursal_sel} en {mes_sel}")
-        return # Usamos return en lugar de stop para salir de la función limpiamente
+        return
 
-    # =====================================================
-    # AGRUPACIÓN POR VENDEDOR
-    # =====================================================
-    df_vendedor = (
-        df.groupby("vendedor", as_index=False)
-        .agg({
-            "meta_vendedor": "first",
-            "venta_real": "sum",
-            "costo_real": "sum",
-            "utilidad_real": "sum",
-            "margen_real": "mean",
-            "porcentaje_cumplimiento": "mean",
-            "semaforo": "max",
-        })
-    )
-
-    if df_vendedor.empty:
-        st.info("No hay datos agregados para mostrar")
-        st.stop()
+    df_vendedor = agrupar_por_vendedor(df_filtrado)
 
     # =====================================================
     # GRÁFICO
@@ -187,20 +185,15 @@ def mostrar(config):
         "semaforo": "Semáforo",
     })
 
-    tabla_key = f"espacio_tabla_{sucursal_sel}_{mes_sel}"
+    #tabla_key = f"espacio_tabla_{sucursal_sel}_{mes_sel}"
 
-    # Creamos un hueco vacío
-    placeholder = st.empty()
-
-    # Dibujamos la tabla dentro de ese hueco
-    with placeholder.container():
-        mostrar_tabla_normal(
-            df_tabla,
-            columnas_fijas=["vendedor"],
-            columnas_numericas=[
-                "Meta", "Venta", "Costo", "Utilidad", "Margen", "% Cumplimiento"
-            ],
-            resaltar_primera_columna=True,
-            height=800,
-        )
+    mostrar_tabla_normal(
+        df_tabla,
+        columnas_fijas=["vendedor"],
+        columnas_numericas=[
+            "Meta", "Venta", "Costo", "Utilidad", "Margen", "% Cumplimiento"
+        ],
+        resaltar_primera_columna=True,
+        height=800,
+    )
 
