@@ -264,9 +264,9 @@ def mostrar_tabla_normal(
         theme=AgGridTheme.ALPINE,
         height=calculated_height,
         use_container_width=True,
-        fit_columns_on_grid_load=True,
-        #allow_unsafe_jscode=True,
-        key=key_seguro
+        fit_columns_on_grid_load=False,
+        allow_unsafe_jscode=True,
+        key="tabla_vendedores"
     )
 
 
