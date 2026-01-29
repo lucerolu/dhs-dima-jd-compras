@@ -131,6 +131,12 @@ def mostrar_tabla_normal(
     # ---------------------------------
     # 🎨 CALCULAR MIN / MAX POR COLUMNA
     # ---------------------------------
+
+    # Asegurarse que todas las columnas numéricas sean float
+    for col in columnas_numericas:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
     min_max = {}
     for col in columnas_numericas:
         if col not in columnas_sin_degradado and col in df.columns:

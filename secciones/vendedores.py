@@ -187,6 +187,8 @@ def mostrar(config):
 
     #tabla_key = f"espacio_tabla_{sucursal_sel}_{mes_sel}"
 
+
+
     mostrar_tabla_normal(
         df_tabla,
         columnas_fijas=["vendedor"],
