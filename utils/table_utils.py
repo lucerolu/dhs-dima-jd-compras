@@ -246,6 +246,7 @@ def mostrar_tabla_normal(
     # ---------------------------------
     # RENDER
     # ---------------------------------
+
     AgGrid(
         df,
         gridOptions=grid_options,
@@ -253,8 +254,10 @@ def mostrar_tabla_normal(
         height=calculated_height,
         use_container_width=True,
         fit_columns_on_grid_load=False,
-        allow_unsafe_jscode=True
+        allow_unsafe_jscode=True,
+        key=f"aggrid_{hash(pd.util.hash_pandas_object(df).sum())}"
     )
+
 
 
 

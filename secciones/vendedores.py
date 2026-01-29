@@ -194,6 +194,6 @@ def mostrar(config):
             "Meta", "Venta", "Costo", "Utilidad", "Margen", "% Cumplimiento"
         ],
         resaltar_primera_columna=True,
-        height=800,
     )
+
 
