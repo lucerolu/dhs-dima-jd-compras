@@ -19,41 +19,43 @@ def render_descripcion():
         """
     )
 
-def cargar_datos():
+
+
+@st.cache_data(ttl=86400)
+def cargar_ventas_base():
     df = obtener_vista("vw_facturacion_sucursal_mes_jd")
-    df_meta = obtener_vista("vw_dashboard_meta_sucursal")
-
     if df.empty:
-        st.warning("No hay datos disponibles para ventas.")
-        return None, None
-
-    if df_meta.empty:
-        st.warning("No hay datos de metas disponibles.")
-        return None, None
-
+        raise ValueError("Vista ventas vacía")
     df["venta_real"] = pd.to_numeric(df["venta_real"], errors="coerce").fillna(0)
+    return df
 
-    return df, df_meta
 
-def preparar_anio_fiscal(df, df_meta):
+@st.cache_data(ttl=86400)
+def cargar_meta_base():
+    df_meta = obtener_vista("vw_dashboard_meta_sucursal")
+    if df_meta.empty:
+        raise ValueError("Vista metas vacía")
+
+    df_meta["venta_real"] = pd.to_numeric(df_meta["venta_real"], errors="coerce").fillna(0)
+    df_meta["meta"] = pd.to_numeric(df_meta["meta"], errors="coerce").fillna(0)
+
+    return df_meta
+
+
+
+
+@st.cache_data(ttl=86400)
+def preparar_fiscal_cacheado(df, df_meta):
     anio_fiscal_actual = df["anio_fiscal_jd"].max()
 
     df_fiscal = df[df["anio_fiscal_jd"] == anio_fiscal_actual]
-
-    df_meta_fiscal = df_meta[
-        df_meta["anio_fiscal_jd"] == anio_fiscal_actual
-    ].copy()
-
-    df_meta_fiscal["venta_real"] = pd.to_numeric(
-        df_meta_fiscal["venta_real"], errors="coerce"
-    ).fillna(0)
-
-    df_meta_fiscal["meta"] = pd.to_numeric(
-        df_meta_fiscal["meta"], errors="coerce"
-    ).fillna(0)
+    df_meta_fiscal = df_meta[df_meta["anio_fiscal_jd"] == anio_fiscal_actual].copy()
 
     return df_fiscal, df_meta_fiscal, anio_fiscal_actual
 
+
+
+@st.cache_data(ttl=86400)
 def preparar_mensual(df_fiscal, df_meta_fiscal):
     mensual = (
         df_fiscal
@@ -673,30 +675,20 @@ def tabla_detalle_mensual_sucursal(mensual_sucursal):
 
 
 
-
-
-
-
 def mostrar(config):
     st.title("Ventas")
-
     render_descripcion()
 
-    # -----------------------------
-    # CARGA DE DATOS
-    # -----------------------------
-    df, df_meta = cargar_datos()
-    if df is None or df_meta is None:
-        return
+    # 🔥 DATA BASE (cacheado 24h)
+    df_base = cargar_ventas_base()
+    df_meta = cargar_meta_base()
 
-    # -----------------------------
-    # PREPARACIÓN AÑO FISCAL
-    # -----------------------------
-    df_fiscal, df_meta_fiscal, anio_fiscal_actual = preparar_anio_fiscal(df, df_meta)
+    # 🔥 DATA FISCAL (cacheado 24h)
+    df_fiscal, df_meta_fiscal, anio_fiscal_actual = preparar_fiscal_cacheado(
+        df_base, df_meta
+    )
 
-    # -----------------------------
-    # AGRUPACIÓN MENSUAL
-    # -----------------------------
+    # 🔥 DATA MENSUAL (cacheado 24h)
     mensual = preparar_mensual(df_fiscal, df_meta_fiscal)
 
     # -----------------------------
@@ -710,41 +702,12 @@ def mostrar(config):
     # -----------------------------
     grafica_venta_vs_meta(mensual)
     tabla_ventas_mes_a_mes(mensual)
-
     grafica_meta_horizontal(mensual)
-
     matriz_ventas_sucursal(df_fiscal)
-
     grafica_venta_sucursal_vs_meta(df_meta_fiscal)
 
-
-
-    #mensual_sucursal = grafica_venta_sucursal_vs_meta(df_meta_fiscal)
-    #tabla_detalle_mensual_sucursal(mensual_sucursal)
-
-    #matriz_ventas_sucursal(df_fiscal)
-
     tabla_sucursal, periodo_sel = detalle_sucursal_por_mes(
-        df_fiscal,
-        df_meta_fiscal
+        df_fiscal, df_meta_fiscal
     )
 
     grafica_cumplimiento_sucursal(tabla_sucursal, periodo_sel)
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
