@@ -5,7 +5,7 @@ import pandas as pd
 import altair as alt
 
 from utils.api_utils import obtener_vista
-from utils.table_utils import mostrar_tabla_normal
+from utils.table_utils import mostrar_tabla_normal_cloud
 
 
 # =========================================================
@@ -182,20 +182,24 @@ def mostrar(config):
         "utilidad_real": "Utilidad",
         "margen_real": "Margen",
         "porcentaje_cumplimiento": "% Cumplimiento",
-        "semaforo": "Semáforo",
+        "semaforo": "Semáforo"
+
     })
 
     #tabla_key = f"espacio_tabla_{sucursal_sel}_{mes_sel}"
 
 
 
-    mostrar_tabla_normal(
+    mostrar_tabla_normal_cloud(
         df_tabla,
         columnas_fijas=["vendedor"],
-        columnas_numericas=[
-            "Meta", "Venta", "Costo", "Utilidad", "Margen", "% Cumplimiento"
-        ],
+        columnas_numericas=["Meta", "Venta", "Costo", "Utilidad", "Margen", "% Cumplimiento"],
+        #columnas_sin_degradado=["Margen"],
+        columna_total="Venta",
         resaltar_primera_columna=True,
+        ordenar_por="Venta",   # 👈 orden automático
+        ascendente=False
     )
+
 
 
