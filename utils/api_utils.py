@@ -83,8 +83,8 @@ def mostrar_fecha_actualizacion():
                         padding:10px;
                         border-radius:5px;
                         margin-bottom:10px;">
-                🕒 <b>Última actualización de datos:</b> {fecha_formateada}<br>
-                📋 <i>{data.get("descripcion", "")}</i>
+                   <b>Última actualización de datos:</b> {fecha_formateada}<br>
+                   <i>{data.get("descripcion", "")}</i>
             </div>
             """,
             unsafe_allow_html=True

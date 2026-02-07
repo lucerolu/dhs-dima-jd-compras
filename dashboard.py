@@ -8,7 +8,7 @@ from utils.config import cargar_config
 from utils.api_utils import mostrar_fecha_actualizacion
 
 # Secciones
-from secciones import compras, ventas, clientes, vendedores, cancelaciones
+from secciones import compras, ventas, clientes, vendedores, cancelaciones, linea
 
 # -----------------------------------------------------
 # CONFIGURACIÓN DE LA PÁGINA
@@ -58,6 +58,26 @@ if st.session_state["authentication_status"] is True:
     config = cargar_config()
 
     with st.sidebar:
+        # 1. Inyectamos el CSS para convertir la sidebar en un contenedor flexible
+        st.markdown(
+            """
+            <style>
+                /* Seleccionamos el contenedor interno de la sidebar */
+                [data-testid="stSidebarUserContent"] {
+                    display: flex;
+                    flex-direction: column;
+                    height: 90vh; /* Ajustamos al alto de la pantalla */
+                }
+                /* Creamos una clase para un div que se expandirá */
+                .espaciador-flexible {
+                    flex-grow: 1;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # --- SECCIÓN SUPERIOR ---
         st.markdown(f"👋 **Bienvenida, {user_name}**")
 
         opcion = st.selectbox(
@@ -68,23 +88,29 @@ if st.session_state["authentication_status"] is True:
                 "Vendedores",
                 "Cancelaciones",
                 "Clientes / Ubicación",
+                "Ventas por línea",
             ]
         )
 
-        st.markdown("---")
+        # 2. Insertamos el "espaciador" que empuja todo hacia abajo
+        st.markdown('<div class="espaciador-flexible"></div>', unsafe_allow_html=True)
+
+        # --- SECCIÓN INFERIOR (Todo esto quedará pegado abajo) ---
+        st.divider() 
+
+        if st.button("Limpiar datos de memoria", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+
+        # Tu función de fecha (la caja verde)
+        mostrar_fecha_actualizacion()
+
+        # El botón de logout
         if authenticator.logout("Cerrar sesión", "sidebar"):
             st.session_state["authentication_status"] = None
             st.session_state["name"] = None
             st.session_state["username"] = None
             st.rerun()
-
-        st.markdown("---")
-
-        if st.button("Limpiar datos de memoria"):
-            st.cache_data.clear()  # Esto borra toda la memoria de Streamlit
-            st.rerun()
-
-        mostrar_fecha_actualizacion()
 
     # ------------------- CONTENIDO PRINCIPAL -------------------
     if opcion == "Compras vs Meta":
@@ -101,6 +127,9 @@ if st.session_state["authentication_status"] is True:
 
     elif opcion == "Cancelaciones":
         cancelaciones.mostrar(config)
+
+    elif opcion == "Ventas por línea":
+        linea.mostrar(config)
 
 elif st.session_state["authentication_status"] is False:
     st.error("❌ Usuario o contraseña incorrectos")
