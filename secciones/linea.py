@@ -365,41 +365,50 @@ def renderizar_tablas_detalle(df_suc_f, df_prov_f):
         )
 
 def renderizar_grafico_vendedores(df_vendedores, linea_sel, mes_sel):
-    """
-    Genera un gráfico de barras horizontales (Venta vs Meta) asegurando
-    que se muestren los vendedores sin meta (SIN META).
-    """
     if df_vendedores.empty:
         st.warning("No hay datos disponibles para los filtros seleccionados.")
         return
 
-    # 1. Preparación de los datos
     df_grafico = df_vendedores.copy()
     
-    # --- TRATAMIENTO DE NULOS ---
-    # Si meta es NULL, debe ser 0 para que el gráfico tenga base numérica
+    # 1. Limpieza y Normalización
     df_grafico["meta_vendedor_linea"] = df_grafico["meta_vendedor_linea"].fillna(0)
-    
-    # Si semáforo es NULL o "SIN META" (como sale en tu MySQL), estandarizar a "SIN_META"
-    # Nota: Tu MySQL muestra "SIN META", lo normalizamos para el scale de Altair
-    df_grafico["semaforo"] = df_grafico["semaforo"].replace({"SIN META": "SIN_META"})
-    df_grafico["semaforo"] = df_grafico["semaforo"].fillna("SIN_META")
-    
-    # Etiqueta combinada
+    df_grafico["semaforo"] = df_grafico["semaforo"].replace({"SIN META": "SIN_META"}).fillna("SIN_META")
     df_grafico["etiqueta_vendedor"] = df_grafico["linea"] + " - " + df_grafico["vendedor"]
-    
-    # Agrupamos
-    df_grafico = df_grafico.groupby(["etiqueta_vendedor", "semaforo"]).agg({
+
+    # Agrupamos por vendedor
+    df_grafico = df_grafico.groupby("etiqueta_vendedor").agg({
         "venta_real": "sum",
-        "meta_vendedor_linea": "sum"
+        "meta_vendedor_linea": "sum",
+        "semaforo": "first"
     }).reset_index()
 
-    # Calcular porcentaje de cumplimiento para el tooltip (evitando división por cero)
+    # Recalcular cumplimiento
     df_grafico["porcentaje_cumplimiento"] = (df_grafico["venta_real"] / df_grafico["meta_vendedor_linea"]) * 100
     df_grafico.loc[df_grafico["meta_vendedor_linea"] == 0, "porcentaje_cumplimiento"] = 0
+    
+    def definir_semaforo_global(row):
+        if row["meta_vendedor_linea"] == 0: return "SIN_META"
+        cumplimiento = row["porcentaje_cumplimiento"]
+        if cumplimiento >= 95: return "VERDE"
+        if cumplimiento >= 85: return "AMARILLO"
+        return "ROJO"
+    
+    if mes_sel == "TODOS":
+        df_grafico["semaforo"] = df_grafico.apply(definir_semaforo_global, axis=1)
 
-    # Ordenar: Los que más vendieron o tienen más meta primero
-    df_grafico = df_grafico.sort_values(["meta_vendedor_linea", "venta_real"], ascending=[False, False])
+    # --- LÓGICA DE ORDENAMIENTO ESTÉTICO ---
+    # 1. Prioridad: ¿Tiene meta? (True/False)
+    # 2. Si tiene meta: Ordenar por Meta descendente
+    # 3. Si NO tiene meta: Ordenar por Venta descendente
+    df_grafico["tiene_meta"] = df_grafico["meta_vendedor_linea"] > 0
+    df_grafico = df_grafico.sort_values(
+        by=["tiene_meta", "meta_vendedor_linea", "venta_real"], 
+        ascending=[False, False, False]
+    )
+    
+    # Creamos una lista para que Altair respete este orden exacto
+    orden_vendedores = df_grafico["etiqueta_vendedor"].tolist()
 
     # 2. Configuración de colores
     color_scale = alt.Scale(
@@ -407,48 +416,46 @@ def renderizar_grafico_vendedores(df_vendedores, linea_sel, mes_sel):
         range=["#DC3545", "#FFC107", "#28A745", "#1f77b4"]
     )
 
-    # 3. Capa de la META (Gris muy claro)
+    # 3. Capa de la META
     meta_bar = (
         alt.Chart(df_grafico)
         .mark_bar(color="#F5F5F5", size=24, cornerRadiusEnd=2)
         .encode(
             y=alt.Y("etiqueta_vendedor:N", 
-                    sort=list(df_grafico["etiqueta_vendedor"]), 
+                    sort=orden_vendedores, # Usamos la lista ordenada
                     title=None,
-                    axis=alt.Axis(labelLimit=400)),
+                    axis=alt.Axis(labelLimit=1000)), # Evita que se corten los nombres
             x=alt.X("meta_vendedor_linea:Q", title="Monto ($)"),
             tooltip=[
                 alt.Tooltip("etiqueta_vendedor:N", title="Vendedor"),
-                alt.Tooltip("meta_vendedor_linea:Q", title="Meta", format=",.2f"),
+                alt.Tooltip("meta_vendedor_linea:Q", title="Meta Total", format=",.2f"),
             ],
         )
     )
 
-    # 4. Capa de la VENTA (Azul si no hay meta, Semáforo si sí)
+    # 4. Capa de la VENTA
     venta_bar = (
         alt.Chart(df_grafico)
         .mark_bar(size=14, cornerRadiusEnd=2)
         .encode(
-            y=alt.Y("etiqueta_vendedor:N", sort=list(df_grafico["etiqueta_vendedor"])),
+            y=alt.Y("etiqueta_vendedor:N", sort=orden_vendedores),
             x=alt.X("venta_real:Q"),
             color=alt.Color("semaforo:N", scale=color_scale, legend=None),
             tooltip=[
                 alt.Tooltip("etiqueta_vendedor:N", title="Vendedor"),
-                alt.Tooltip("venta_real:Q", title="Venta Real", format=",.2f"),
-                alt.Tooltip("porcentaje_cumplimiento:Q", title="% Cumplimiento", format=".1f"),
+                alt.Tooltip("venta_real:Q", title="Venta Real Total", format=",.2f"),
+                alt.Tooltip("porcentaje_cumplimiento:Q", title="% Cumplimiento Total", format=".1f"),
             ],
         )
     )
 
     # 5. Combinar
     chart = (meta_bar + venta_bar).properties(
-        height=max(350, len(df_grafico) * 45)
+        height=max(350, len(df_grafico) * 40)
     ).configure_axis(
         labelFontSize=11,
-        titleFontSize=13
-    ).configure_view(
-        strokeOpacity=0
-    )
+        titleFontSize=12
+    ).configure_view(strokeOpacity=0)
 
     st.subheader(f"Cumplimiento por Vendedor – {linea_sel} ({mes_sel})")
     st.altair_chart(chart, use_container_width=True)
