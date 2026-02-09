@@ -5,6 +5,7 @@ import datetime
 import altair as alt
 import pandas as pd
 from utils.api_utils import obtener_vista
+from utils.table_utils import mostrar_tabla_normal_cloud
 
 
 # ======================================================
@@ -452,6 +453,51 @@ def renderizar_grafico_vendedores(df_vendedores, linea_sel, mes_sel):
     st.subheader(f"Cumplimiento por Vendedor – {linea_sel} ({mes_sel})")
     st.altair_chart(chart, use_container_width=True)
 
+def renderizar_tabla_vendedores(df_vendedores):
+    """
+    Prepara y muestra la tabla de rendimiento de vendedores usando la utilidad centralizada.
+    """
+    if df_vendedores.empty:
+        return
+
+    # 1. Agrupación y preparación de datos
+    # Agrupamos por vendedor para consolidar si hay registros duplicados por alguna razón
+    df_tabla = df_vendedores.groupby('vendedor').agg({
+        'meta_vendedor_linea': 'sum',
+        'venta_real': 'sum',
+        'costo_real': 'sum',
+        'utilidad_real': 'sum',
+        'margen_real': 'mean', # El margen se promedia
+        'porcentaje_cumplimiento': 'mean', # El cumplimiento se promedia (o se puede recalcular)
+        'semaforo': 'first'    # Tomamos el estado del semáforo
+    }).reset_index()
+
+    # 2. Renombrar columnas para la función mostrar_tabla_normal_cloud
+    df_tabla = df_tabla.rename(columns={
+        "vendedor": "Vendedor",
+        "meta_vendedor_linea": "Meta",
+        "venta_real": "Venta",
+        "costo_real": "Costo",
+        "utilidad_real": "Utilidad",
+        "margen_real": "Margen %",
+        "porcentaje_cumplimiento": "% Cumplimiento",
+        "semaforo": "Semáforo"
+    })
+
+    # 3. Llamada a la utilidad de tabla
+    st.write("#### Detalle Numérico por Vendedor")
+    mostrar_tabla_normal_cloud(
+        df_tabla,
+        columnas_fijas=["Vendedor"],
+        columnas_numericas=["Meta", "Venta", "Costo", "Utilidad", "Margen %", "% Cumplimiento"],
+        #columnas_sin_degradado=["Margen %"], # A veces el margen confunde con degradado
+        columna_total="Venta",
+        resaltar_primera_columna=True,
+        ordenar_por="Venta",
+        ascendente=False
+    )
+
+
 # ======================================================
 # 4️⃣ ORQUESTADOR PRINCIPAL
 # ======================================================
@@ -499,5 +545,16 @@ def mostrar(config):
     # Tablas de detalle (las que formateamos con comas y sin $)
     renderizar_tablas_detalle(df_s_f, df_p_f)
 
-    renderizar_grafico_vendedores(df_v_f, linea_sel, mes_sel)
+    if linea_sel != "TODAS":
+        # Mostramos el gráfico que ya tenías
+        renderizar_grafico_vendedores(df_v_f, linea_sel, mes_sel)
+        
+        # Agregamos la nueva tabla debajo en un expander para limpieza visual
+        with st.expander("Ver tabla de cumplimiento por vendedor"):
+            renderizar_tabla_vendedores(df_v_f)
+    else:
+        st.subheader("Cumplimiento por Vendedor")
+        st.info("**Selecciona una Línea específica** para ver el ranking de vendedores y su detalle de cumplimiento.")
+        
+    
 

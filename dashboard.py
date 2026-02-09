@@ -96,7 +96,7 @@ if st.session_state["authentication_status"] is True:
         st.markdown('<div class="espaciador-flexible"></div>', unsafe_allow_html=True)
 
         # --- SECCIÓN INFERIOR (Todo esto quedará pegado abajo) ---
-        st.divider() 
+        #st.divider() 
 
         if st.button("Limpiar datos de memoria", use_container_width=True):
             st.cache_data.clear()
