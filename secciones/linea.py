@@ -443,8 +443,8 @@ def renderizar_grafico_vendedores(df_vendedores, linea_sel, mes_sel):
             color=alt.Color("semaforo:N", scale=color_scale, legend=None),
             tooltip=[
                 alt.Tooltip("etiqueta_vendedor:N", title="Vendedor"),
-                alt.Tooltip("venta_real:Q", title="Venta Real Total", format=",.2f"),
-                alt.Tooltip("porcentaje_cumplimiento:Q", title="% Cumplimiento Total", format=".1f"),
+                alt.Tooltip("venta_real:Q", title="Venta", format=",.2f"),
+                alt.Tooltip("porcentaje_cumplimiento:Q", title="% Cumplimiento", format=".1f"),
             ],
         )
     )
