@@ -8,7 +8,17 @@ from utils.api_utils import obtener_vista
 from utils.table_utils import mostrar_tabla_matriz
 from datetime import datetime
 
-
+# ======================================================
+# 1️⃣ CARGA DE DATOS CACHEADA (24 HORAS)
+# ======================================================
+@st.cache_data(ttl=86400) # 👈 Aquí definimos las 24 horas
+def cargar_datos_compras():
+    try:
+        df = obtener_vista("vw_division_vs_meta_jd")
+        return df
+    except Exception as e:
+        st.error(f"Error al cargar datos de compras: {e}")
+        return pd.DataFrame()
 
 def agregar_semaforo(df):
     df = df.copy()
@@ -333,7 +343,7 @@ def grafico_meta_vs_compra_por_division(df, division):
 def mostrar(config):
     st.title("Compras vs Meta")
 
-    df = obtener_vista("vw_division_vs_meta_jd")
+    df = cargar_datos_compras()
 
     if df.empty:
         st.warning("No hay datos disponibles de compras.")
