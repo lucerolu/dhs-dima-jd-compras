@@ -7,12 +7,14 @@ import altair as alt
 from utils.api_utils import obtener_vista
 from utils.table_utils import mostrar_tabla_normal
 from utils.table_utils import mostrar_tabla_matriz
+from utils.table_utils import mostrar_tabla_matriz_html
+from utils.table_utils import mostrar_tabla_normal_html
 
 
 def render_descripcion():
     st.markdown(
         """
-        **Resumen de ventas JD**
+        **Resumen de ventas JD**h
         
         - Acumulado del año fiscal (empezando desde noviembre)
         - No incluye venta de refacciones de servicio
@@ -40,6 +42,24 @@ def cargar_meta_base():
     df_meta["meta"] = pd.to_numeric(df_meta["meta"], errors="coerce").fillna(0)
 
     return df_meta
+
+@st.cache_data(ttl=86400)
+def cargar_detalle_refacciones_final():
+    df = obtener_vista("vw_dashboard_comercial_refacciones_final")
+    if df.empty:
+        st.warning("La vista de refacciones final está vacía.")
+        return pd.DataFrame()
+    
+    # Asegurar que las columnas clave sean numéricas para el degradado
+    cols_numericas = [
+        "venta_mostrador", "costo_mostrador", "venta_servicio_subref", 
+        "venta_total_combinada", "meta_mes", "pct_alcance_meta", "margen_pct_mostrador"
+    ]
+    for col in cols_numericas:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+            
+    return df
 
 
 
@@ -265,7 +285,7 @@ def tabla_ventas_mes_a_mes(mensual):
 
     st.subheader("Ventas mes a mes")
 
-    mostrar_tabla_normal(
+    mostrar_tabla_normal_html(
         df=tabla,
         columnas_fijas=["Periodo"],
         columnas_numericas=[
@@ -277,7 +297,8 @@ def tabla_ventas_mes_a_mes(mensual):
             "% Variación",
             "% Cumplimiento Meta"
         ],
-        height=520
+        max_height=520,
+        resaltar_primera_columna=True
     )
 
     
@@ -429,7 +450,7 @@ def grafica_venta_sucursal_vs_meta(df_meta_fiscal):
 
 
 def matriz_ventas_sucursal(df_fiscal):
-    st.subheader("📊 Venta mensual por sucursal")
+    st.subheader("Venta mensual por sucursal")
 
     ventas_sucursal_mes = (
         df_fiscal
@@ -475,7 +496,7 @@ def matriz_ventas_sucursal(df_fiscal):
     min_val = float(valores.min()) if len(valores) else 0
     max_val = float(valores.max()) if len(valores) else 1
 
-    mostrar_tabla_matriz(
+    mostrar_tabla_matriz_html(
         df=matriz,
         header_left=["Mes"],
         data_columns=data_columns,
@@ -487,7 +508,7 @@ def matriz_ventas_sucursal(df_fiscal):
 
 
 def detalle_sucursal_por_mes(df_fiscal, df_meta_fiscal):
-    st.subheader("Desempeño por sucursal")
+    st.subheader("Desempeño por sucursal ")
 
     # -------------------------------
     # SELECTOR DE MES (ORDEN FISCAL)
@@ -568,7 +589,7 @@ def detalle_sucursal_por_mes(df_fiscal, df_meta_fiscal):
     # -------------------------------
     # RENDER TABLA
     # -------------------------------
-    mostrar_tabla_normal(
+    mostrar_tabla_normal_html(
         df=tabla,
         columnas_fijas=["Sucursal"],
         columnas_numericas=[
@@ -580,7 +601,7 @@ def detalle_sucursal_por_mes(df_fiscal, df_meta_fiscal):
             "% Cumplimiento"
         ],
 
-        height=520,
+        max_height=700,
         resaltar_primera_columna=True
     )
 
@@ -665,11 +686,63 @@ def tabla_detalle_mensual_sucursal(mensual_sucursal):
         tabla[col] = pd.to_numeric(tabla[col], errors="coerce").fillna(0)
 
     # Mostramos con la plantilla de tabla preestablecida
-    mostrar_tabla_normal(
+    mostrar_tabla_normal_html(
         df=tabla,
         columnas_fijas=["Periodo"],
         columnas_numericas=["Venta", "Meta", "% Cumplimiento"],
-        height=400,
+        max_height=400,
+        resaltar_primera_columna=True
+    )
+
+
+def mostrar_detalle_refacciones_mes(df_refacciones, periodo_seleccionado):
+    # --- Cambio aquí: Título dinámico ---
+    st.subheader(f"Detalle con servicio - {periodo_seleccionado}")
+    
+    # 1. Filtrar por el mes seleccionado
+    df_mes = df_refacciones[df_refacciones["periodo_jd"] == periodo_seleccionado].copy()
+    
+    if df_mes.empty:
+        st.info(f"No hay datos de refacciones para el periodo {periodo_seleccionado}")
+        return
+
+    # 2. Seleccionar y Renombrar columnas
+    tabla = df_mes[[
+        "sucursal",
+        "venta_mostrador",
+        "margen_pct_mostrador",
+        "venta_servicio_subref",
+        "venta_total_combinada",
+        "meta_mes",
+        "pct_alcance_meta",
+        "semaforo"
+    ]].rename(columns={
+        "sucursal": "Sucursal",
+        "venta_mostrador": "Venta Mostrador",
+        "margen_pct_mostrador": "Margen Mostrador %",
+        "venta_servicio_subref": "Venta Servicio",  # Nombre limpio
+        "venta_total_combinada": "Venta Total",
+        "meta_mes": "Meta Mes",
+        "pct_alcance_meta": "% Alcance Meta",
+        "semaforo": "Semáforo"
+    })
+
+    # 3. Ordenar por Venta Total
+    tabla = tabla.sort_values("Venta Total", ascending=False)
+
+    # 4. Renderizar usando la plantilla HTML
+    mostrar_tabla_normal_html(
+        df=tabla,
+        columnas_fijas=["Sucursal"],
+        columnas_numericas=[
+            "Venta Mostrador",
+            "Margen Mostrador %",
+            "Venta Servicio",  # Debe coincidir con el rename
+            "Venta Total",
+            "Meta Mes",
+            "% Alcance Meta"
+        ],
+        max_height=700,
         resaltar_primera_columna=True
     )
 
@@ -682,6 +755,7 @@ def mostrar(config):
     # 🔥 DATA BASE (cacheado 24h)
     df_base = cargar_ventas_base()
     df_meta = cargar_meta_base()
+    df_refacciones_base = cargar_detalle_refacciones_final()
 
     # 🔥 DATA FISCAL (cacheado 24h)
     df_fiscal, df_meta_fiscal, anio_fiscal_actual = preparar_fiscal_cacheado(
@@ -709,5 +783,7 @@ def mostrar(config):
     tabla_sucursal, periodo_sel = detalle_sucursal_por_mes(
         df_fiscal, df_meta_fiscal
     )
+    st.markdown("---")
+    mostrar_detalle_refacciones_mes(df_refacciones_base, periodo_sel)
 
     grafica_cumplimiento_sucursal(tabla_sucursal, periodo_sel)

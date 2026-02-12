@@ -461,7 +461,26 @@ def mostrar_tabla_normal_cloud(
     ascendente: bool = False
 ):
     if df.empty:
+        st.warning("El DataFrame está vacío.")
         return
+
+    # --- INYECCIÓN DE CSS PARA EL HEADER BLANCO ---
+    # Esto afecta a los headers de st.dataframe en la app
+    st.markdown("""
+        <style>
+            /* Cambia el fondo del header de la tabla a blanco */
+            .stDataFrame thead tr th {
+                background-color: white !important;
+                color: #0B083D !important;
+                font-weight: bold !important;
+                border-bottom: 1px solid #dee2e6 !important;
+            }
+            /* Opcional: quitar bordes molestos o ajustar fuentes */
+            [data-testid="stTable"] {
+                font-family: sans-serif;
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
     columnas_fijas = columnas_fijas or []
     columnas_numericas = columnas_numericas or []
@@ -469,32 +488,28 @@ def mostrar_tabla_normal_cloud(
 
     df = df.copy()
 
-    # -----------------------------
-    # ORDENAMIENTO
-    # -----------------------------
+    # Ordenamiento
     if ordenar_por and ordenar_por in df.columns:
         df = df.sort_values(by=ordenar_por, ascending=ascendente)
 
-    # -----------------------------
-    # CAST NUMÉRICO SEGURO
-    # -----------------------------
+    # Cast numérico
     for col in columnas_numericas:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # -----------------------------
-    # FORMATOS (NaN -> None)
-    # -----------------------------
+    # Formatos
     format_dict = {
         col: "{:,.2f}" for col in columnas_numericas if col in df.columns
     }
 
-    # -----------------------------
-    # 🎨 DEGRADADO AZUL (por columna)
-    # -----------------------------
+    # --- FUNCIONES DE ESTILO ---
     def degradado_azul(col):
         if col.name in columnas_sin_degradado:
             return ["text-align:right;"] * len(col)
+        
+        # Evitar errores si todo es NaN
+        if col.isnull().all():
+            return [""] * len(col)
 
         min_val = col.min(skipna=True)
         max_val = col.max(skipna=True)
@@ -502,38 +517,20 @@ def mostrar_tabla_normal_cloud(
         styles = []
         for v in col:
             if pd.isna(v):
-                styles.append(
-                    "background-color:white; color:#0B083D; text-align:right;"
-                )
+                styles.append("background-color:white; color:#0B083D; text-align:right;")
                 continue
-
             if min_val == max_val:
-                styles.append(
-                    "background-color:#E3F2FD; color:#0B083D; text-align:right;"
-                )
+                styles.append("background-color:#E3F2FD; color:#0B083D; text-align:right;")
                 continue
 
             ratio = (v - min_val) / (max_val - min_val)
-
             r = int(227 + ratio * (21 - 227))
             g = int(242 + ratio * (101 - 242))
             b = int(253 + ratio * (192 - 253))
-
             color = "white" if ratio > 0.6 else "#151342"
-
-            styles.append(
-                f"""
-                background-color: rgb({r},{g},{b});
-                color: {color};
-                text-align: right;
-                """
-            )
-
+            styles.append(f"background-color: rgb({r},{g},{b}); color: {color}; text-align: right;")
         return styles
 
-    # -----------------------------
-    # 🚦 SEMÁFORO
-    # -----------------------------
     def semaforo(val):
         if val == "VERDE":
             return "background-color:#1E7E34;color:white;font-weight:bold;text-align:center;"
@@ -541,83 +538,520 @@ def mostrar_tabla_normal_cloud(
             return "background-color:#FFC107;color:#212529;font-weight:bold;text-align:center;"
         if val == "ROJO":
             return "background-color:#DC3545;color:white;font-weight:bold;text-align:center;"
-        return "background-color:white;text-align:center;"
+        return "background-color:transparent;text-align:center;"
 
-    # -----------------------------
-    # 🔵 PRIMERA COLUMNA
-    # -----------------------------
     def primera_columna_style(col):
         if not resaltar_primera_columna:
             return ["font-weight:bold; text-align:left;"] * len(col)
+        return ["background-color:#0B083D;color:white;font-weight:bold;text-align:left;"] * len(col)
 
-        return [
-            "background-color:#0B083D;color:white;font-weight:bold;text-align:left;"
-        ] * len(col)
+    # --- STYLER ---
+    styler = df.style.format(format_dict, na_rep="-")
 
-    # -----------------------------
-    # STYLER BASE
-    # -----------------------------
-    styler = (
-        df.style
-        .format(format_dict, na_rep="None")
-        .set_table_styles([
-            {
-                "selector": "th",
-                "props": [
-                    ("background-color", "#706A6ABB"),
-                    ("color", "#0B083D"),
-                    ("font-weight", "bold"),
-                    ("text-align", "center")
-                ]
-            }
-        ])
-    )
-
-    # Primera columna
+    # Aplicar estilos
     if columnas_fijas:
-        styler = styler.apply(
-            primera_columna_style,
-            subset=[columnas_fijas[0]]
-        )
+        styler = styler.apply(primera_columna_style, subset=[columnas_fijas[0]])
 
-    # Degradados numéricos
     for col in columnas_numericas:
         if col in df.columns:
-            styler = styler.apply(
-                degradado_azul,
-                subset=[col]
-            )
+            styler = styler.apply(degradado_azul, subset=[col])
 
-    # Semáforo
     if "Semáforo" in df.columns:
-        styler = styler.applymap(semaforo, subset=["Semáforo"])
+        # Usamos .map en lugar de .applymap (Pandas moderno)
+        styler = styler.map(semaforo, subset=["Semáforo"])
 
-    # Total
     if columna_total and columna_total in df.columns:
         styler = styler.set_properties(
             subset=[columna_total],
             **{"font-weight": "bold", "text-align": "right"}
         )
 
-    # -----------------------------
-    # ALTURA DINÁMICA
-    # -----------------------------
+    # Altura dinámica corregida
     row_height = 35
-    header_height = 40
-    internal_padding = 35
+    header_height = 45
+    calculated_height = min(header_height + (row_height * len(df)), height)
 
-    calculated_height = min(
-        header_height + row_height * (len(df) + 1) - internal_padding,
-        height  # respeta el máximo que tú pases
-    )
-
-
-    # -----------------------------
-    # RENDER
-    # -----------------------------
     st.dataframe(
         styler,
         height=calculated_height,
         use_container_width=True,
         hide_index=True
     )
+
+
+
+
+
+def mostrar_tabla_matriz_html(
+    df: pd.DataFrame,
+    header_left: list,
+    data_columns: list,
+    header_right: list = None,
+    footer_totals: dict = None,
+    max_height: int = 600
+):
+    if df.empty:
+        return
+
+    header_right = header_right or []
+    
+    # --- CÁLCULO DE ESCALA GLOBAL PARA DEGRADADO ---
+    valores = df[data_columns].values.flatten()
+    valores = valores[~pd.isna(valores)].astype(float)
+    min_val = valores.min() if valores.size > 0 else 0
+    max_val = valores.max() if valores.size > 0 else 1
+
+    def get_color(val):
+        if pd.isna(val): return "background-color: #ffffff; color: #0B083D;"
+        ratio = (float(val) - min_val) / (max_val - min_val) if max_val != min_val else 0
+        r = int(227 + ratio * (21 - 227))
+        g = int(242 + ratio * (101 - 242))
+        b = int(253 + ratio * (192 - 253))
+        text_color = "white" if ratio > 0.6 else "#0B083D"
+        return f"background-color: rgb({r},{g},{b}); color: {text_color};"
+
+    # --- CONSTRUCCIÓN DEL HTML ---
+    html = f"""
+    <style>
+        .table-outer-wrapper {{
+            width: 100%;
+            background-color: transparent;
+            padding-bottom: 2px;
+        }}
+        .table-container {{
+            height: auto;
+            max-height: {max_height}px;
+            overflow: auto;
+            border: none;
+            position: relative;
+            background-color: transparent;
+        }}
+        table {{
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 0.85rem;
+            background-color: white;
+            border: 1px solid #f0f2f6;
+        }}
+        /* Estilo General del Header (Blanco) */
+        thead th {{
+            position: sticky;
+            top: 0;
+            background-color: white !important;
+            color: #0B083D !important;
+            z-index: 10;
+            border-bottom: 2px solid #e6e9ef;
+            border-right: 1px solid #f0f2f6;
+            padding: 12px 10px;
+            text-align: center;
+        }}
+        /* Header Pinned (Izquierda y Derecha pero en Blanco) */
+        thead th.pinned-header-left {{
+            position: sticky;
+            left: 0;
+            z-index: 20; /* Mayor que el resto del header */
+            border-right: 2px solid #e6e9ef !important;
+        }}
+        thead th.pinned-header-right {{
+            position: sticky;
+            right: 0;
+            z-index: 20;
+            border-left: 2px solid #e6e9ef !important;
+        }}
+        
+        /* Celdas del Cuerpo Pinned (Azules) */
+        .sticky-left {{
+            position: sticky;
+            left: 0;
+            background-color: #0B083D !important;
+            color: white !important;
+            font-weight: bold;
+            z-index: 5;
+            border-right: 2px solid #e6e9ef !important;
+        }}
+        .sticky-right {{
+            position: sticky;
+            right: 0;
+            background-color: #0B083D !important;
+            color: white !important;
+            font-weight: bold;
+            z-index: 5;
+            border-left: 2px solid #e6e9ef !important;
+        }}
+
+        /* Footer Fijo */
+        tfoot td {{
+            position: sticky;
+            bottom: 0;
+            background-color: #0B083D !important;
+            color: white !important;
+            font-weight: bold;
+            z-index: 10;
+            padding: 10px;
+            border-top: 2px solid #e6e9ef;
+        }}
+        /* Esquinas del Footer */
+        tfoot td.sticky-left {{ z-index: 15; }}
+        tfoot td.sticky-right {{ z-index: 15; }}
+
+        td {{
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f2f6;
+            border-right: 1px solid #f0f2f6;
+            white-space: nowrap;
+            background-color: white; 
+            color: #0B083D;
+        }}
+
+        .table-container::-webkit-scrollbar {{ width: 7px; height: 7px; }}
+        .table-container::-webkit-scrollbar-track {{ background: transparent; }}
+        .table-container::-webkit-scrollbar-thumb {{ background: #d1d5db; border-radius: 10px; }}
+        .table-container::-webkit-scrollbar-thumb:hover {{ background: #9ca3af; }}
+    </style>
+    <div class="table-outer-wrapper">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        {"".join([
+                            f'<th class="'
+                            f'{"pinned-header-left" if c in header_left else "pinned-header-right" if c in header_right else ""}'
+                            f'">{c}</th>' 
+                            for c in df.columns
+                        ])}
+                    </tr>
+                </thead>
+                <tbody>
+    """
+
+    for _, row in df.iterrows():
+        html += "<tr>"
+        for col in df.columns:
+            val = row[col]
+            clase = ""
+            if col in header_left: clase = "sticky-left"
+            elif col in header_right: clase = "sticky-right"
+            
+            display_val = f"{val:,.2f}" if isinstance(val, (int, float)) else str(val)
+            if pd.isna(val): display_val = "-"
+
+            if col in data_columns:
+                estilo_celda = get_color(val)
+            else:
+                estilo_celda = "background-color: white;" if clase == "" else ""
+
+            html += f'<td class="{clase}" style="{estilo_celda}">{display_val}</td>'
+        html += "</tr>"
+
+    if footer_totals:
+        html += "<tfoot><tr>"
+        for col in df.columns:
+            clase = ""
+            if col in header_left: clase = "sticky-left"
+            elif col in header_right: clase = "sticky-right"
+            val = footer_totals.get(col, "")
+            display_val = f"{val:,.2f}" if isinstance(val, (int, float)) else str(val)
+            html += f'<td class="{clase}">{display_val}</td>'
+        html += "</tr></tfoot>"
+
+    html += "</table></div></div>"
+    
+    st.write(html, unsafe_allow_html=True)
+
+
+
+
+
+def mostrar_tabla_html_pro(
+    df: pd.DataFrame,
+    columnas_fijas=None, # Las que van en azul marino a la izquierda
+    columnas_numericas=None,
+    columnas_sin_degradado=None,
+    resaltar_primera_columna: bool = False,
+    max_height: int = 600,
+    footer_totals: dict = None
+):
+    if df.empty:
+        return
+
+    columnas_fijas = columnas_fijas or []
+    columnas_numericas = columnas_numericas or []
+    columnas_sin_degradado = columnas_sin_degradado or []
+
+    # --- LÓGICA DE COLORES (POR COLUMNA) ---
+    def get_color_columna(val, col_name):
+        if pd.isna(val) or col_name in columnas_sin_degradado:
+            return "background-color: white; color: #0B083D;"
+        
+        # Obtener min/max solo de esta columna para el degradado
+        col_data = df[col_name]
+        min_v = col_data.min()
+        max_v = col_data.max()
+        
+        if min_v == max_v:
+            return "background-color: #E3F2FD; color: #0B083D;"
+            
+        ratio = (float(val) - min_v) / (max_v - min_v) if max_v != min_v else 0
+        r = int(227 + ratio * (21 - 227))
+        g = int(242 + ratio * (101 - 242))
+        b = int(253 + ratio * (192 - 253))
+        text_color = "white" if ratio > 0.6 else "#0B083D"
+        return f"background-color: rgb({r},{g},{b}); color: {text_color};"
+
+    def get_semaforo(val):
+        colors = {
+            "VERDE": "background-color:#1E7E34;color:white;",
+            "AMARILLO": "background-color:#FFC107;color:#212529;",
+            "ROJO": "background-color:#DC3545;color:white;"
+        }
+        return colors.get(val, "background-color:transparent;") + "font-weight:bold;text-align:center;"
+
+    # --- CONSTRUCCIÓN DEL HTML ---
+    html = f"""
+    <style>
+        .table-outer-wrapper {{ width: 100%; background-color: transparent; padding-bottom: 2px; }}
+        .table-container {{ 
+            height: auto; max-height: {max_height}px; overflow: auto; 
+            position: relative; background-color: transparent; 
+        }}
+        table {{ 
+            border-collapse: separate; border-spacing: 0; width: 100%; 
+            font-family: 'Segoe UI', sans-serif; font-size: 0.85rem; 
+            background-color: white; border: 1px solid #f0f2f6;
+        }}
+        
+        /* Headers */
+        thead th {{
+            position: sticky; top: 0; background-color: white !important;
+            color: #0B083D; z-index: 10; border-bottom: 2px solid #e6e9ef;
+            border-right: 1px solid #f0f2f6; padding: 12px 10px; text-align: center;
+        }}
+        thead th.sticky-col {{ 
+            position: sticky; left: 0; z-index: 20; 
+            border-right: 2px solid #e6e9ef !important; 
+        }}
+
+        /* Filas Ancladas (Izquierda) */
+        .sticky-left-cell {{
+            position: sticky; left: 0; background-color: #0B083D !important;
+            color: white !important; font-weight: bold; z-index: 5;
+            border-right: 2px solid #e6e9ef !important;
+        }}
+
+        /* Footer */
+        tfoot td {{
+            position: sticky; bottom: 0; background-color: #0B083D !important;
+            color: white !important; font-weight: bold; z-index: 10;
+            padding: 10px; border-top: 2px solid #e6e9ef;
+        }}
+        tfoot td.sticky-left-cell {{ z-index: 15; }}
+
+        td {{ 
+            padding: 8px 12px; border-bottom: 1px solid #f0f2f6; 
+            border-right: 1px solid #f0f2f6; white-space: nowrap; 
+        }}
+
+        /* Scrollbar custom */
+        .table-container::-webkit-scrollbar {{ width: 7px; height: 7px; }}
+        .table-container::-webkit-scrollbar-thumb {{ background: #d1d5db; border-radius: 10px; }}
+    </style>
+    <div class="table-outer-wrapper">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        {"".join([f'<th class="{"sticky-col" if c in columnas_fijas else ""}">{c}</th>' for c in df.columns])}
+                    </tr>
+                </thead>
+                <tbody>
+    """
+
+    for _, row in df.iterrows():
+        html += "<tr>"
+        for col in df.columns:
+            val = row[col]
+            clase = "sticky-left-cell" if col in columnas_fijas else ""
+            
+            # Estilo dinámico
+            estilo = ""
+            if col == "Semáforo":
+                estilo = get_semaforo(val)
+            elif col in columnas_numericas:
+                estilo = get_color_columna(val, col) + "text-align: right;"
+            elif col in columnas_fijas:
+                # Si no queremos que la primera columna sea azul marino, quitamos esta clase
+                if not resaltar_primera_columna:
+                    clase = "" 
+                    estilo = "font-weight: bold; background-color: white;"
+            else:
+                estilo = "background-color: white; color: #0B083D;"
+
+            display_val = f"{val:,.2f}" if isinstance(val, (int, float)) and col != "Semáforo" else str(val)
+            if pd.isna(val) or val == "None": display_val = "-"
+
+            html += f'<td class="{clase}" style="{estilo}">{display_val}</td>'
+        html += "</tr>"
+
+    if footer_totals:
+        html += "<tfoot><tr>"
+        for col in df.columns:
+            clase = "sticky-left-cell" if col in columnas_fijas else ""
+            val = footer_totals.get(col, "")
+            display_val = f"{val:,.2f}" if isinstance(val, (int, float)) else str(val)
+            html += f'<td class="{clase}">{display_val}</td>'
+        html += "</tr></tfoot>"
+
+    html += "</table></div></div>"
+    st.write(html, unsafe_allow_html=True)
+
+
+
+
+
+def mostrar_tabla_normal_html(
+    df: pd.DataFrame,
+    columnas_fijas=None,
+    columnas_numericas=None,
+    columnas_sin_degradado=None,
+    columna_total=None,
+    max_height=600,
+    resaltar_primera_columna: bool = False
+):
+    if df.empty:
+        return
+
+    columnas_fijas = columnas_fijas or []
+    columnas_numericas = columnas_numericas or []
+    columnas_sin_degradado = columnas_sin_degradado or []
+
+    # --- LÓGICA DE DEGRADADO POR COLUMNA ---
+    stats_columnas = {}
+    for col in columnas_numericas:
+        if col in df.columns and col not in columnas_sin_degradado:
+            col_data = pd.to_numeric(df[col], errors='coerce')
+            stats_columnas[col] = {
+                "min": col_data.min(),
+                "max": col_data.max()
+            }
+
+    def get_color_por_columna(val, col_name):
+        if col_name not in stats_columnas or pd.isna(val):
+            return "background-color: white; color: #0B083D;"
+        stats = stats_columnas[col_name]
+        min_v, max_v = stats["min"], stats["max"]
+        if max_v == min_v:
+            return "background-color: #E3F2FD; color: #0B083D;"
+        ratio = (float(val) - min_v) / (max_v - min_v)
+        r = int(227 + ratio * (21 - 227))
+        g = int(242 + ratio * (101 - 242))
+        b = int(253 + ratio * (192 - 253))
+        text_color = "white" if ratio > 0.6 else "#0B083D"
+        return f"background-color: rgb({r},{g},{b}); color: {text_color};"
+
+    # --- CSS ---
+    html = f"""
+    <style>
+        .table-outer-wrapper {{ width: 100%; background-color: transparent; }}
+        .table-container {{
+            height: auto;
+            max-height: {max_height}px;
+            overflow: auto;
+            position: relative;
+        }}
+        table {{
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            font-family: sans-serif;
+            font-size: 0.85rem;
+            background-color: white;
+            border: 1px solid #d1d5db;
+        }}
+        th, td {{
+            border: 1px solid #d1d5db !important;
+            padding: 8px 12px;
+            white-space: nowrap;
+        }}
+        thead th {{
+            position: sticky;
+            top: 0;
+            background-color: white !important;
+            color: #0B083D !important;
+            z-index: 10;
+            text-align: left;
+        }}
+        thead th:first-child {{ text-align: right !important; }}
+        .h-pinned-left {{ position: sticky; left: 0; z-index: 20; border-right: 2px solid #d1d5db !important; }}
+        .h-pinned-right {{ position: sticky; right: 0; z-index: 20; border-left: 2px solid #d1d5db !important; }}
+        .cell-pinned-left {{ position: sticky; left: 0; z-index: 5; font-weight: bold; border-right: 2px solid #d1d5db !important; }}
+        .cell-pinned-right {{ position: sticky; right: 0; z-index: 5; font-weight: bold; border-left: 2px solid #d1d5db !important; background-color: #F8F9FA !important; }}
+        .table-container::-webkit-scrollbar {{ width: 7px; height: 7px; }}
+        .table-container::-webkit-scrollbar-thumb {{ background: #d1d5db; border-radius: 10px; }}
+    </style>
+    <div class="table-outer-wrapper">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        {"".join([f'<th class="{"h-pinned-left" if c in columnas_fijas else "h-pinned-right" if c == columna_total else ""}" style="text-align: {"right" if i == 0 else "left"}">{c}</th>' for i, c in enumerate(df.columns)])}
+                    </tr>
+                </thead>
+                <tbody>
+    """
+
+    # --- CUERPO ---
+    for _, row in df.iterrows():
+        html += "<tr>"
+        for i, col in enumerate(df.columns):
+            val = row[col]
+            clase = ""
+            estilo_extra = ""
+            alineacion = "text-align: right;" if i == 0 else "text-align: left;"
+            
+            # 1. Lógica de Semáforo
+            if col == "Semáforo":
+                color_bg = "white"
+                color_txt = "#0B083D"
+                val_str = str(val).upper()
+                if "VERDE" in val_str: color_bg = "#28a745"; color_txt = "white"
+                elif "AMARILLO" in val_str: color_bg = "#ffc107"; color_txt = "#0B083D"
+                elif "ROJO" in val_str: color_bg = "#dc3545"; color_txt = "white"
+                estilo_extra = f"background-color: {color_bg}; color: {color_txt}; font-weight: bold; text-align: center;"
+            
+            # 2. Determinar anclajes
+            elif col in columnas_fijas:
+                clase = "cell-pinned-left"
+                if i == 0 and resaltar_primera_columna:
+                    estilo_extra = f"background-color: #0B083D; color: white; {alineacion}"
+                else:
+                    estilo_extra = f"background-color: white; color: #0B083D; {alineacion}"
+            elif col == columna_total:
+                clase = "cell-pinned-right"
+                estilo_extra = f"color: #0B083D; {alineacion}"
+
+            # 3. Determinar Degradado
+            if col in columnas_numericas and col not in columnas_sin_degradado and col != "Semáforo":
+                estilo_extra += get_color_por_columna(val, col)
+                estilo_extra += alineacion 
+            elif not estilo_extra:
+                estilo_extra = f"background-color: white; color: #0B083D; {alineacion}"
+
+            # Formato de visualización
+            if pd.isna(val):
+                display_val = "-"
+            elif isinstance(val, (int, float)):
+                if "%" in col or "Variación" in col:
+                    v = val * 100 if abs(val) <= 1.5 else val
+                    display_val = f"{v:,.1f}%"
+                else:
+                    display_val = f"{val:,.2f}"
+            else:
+                display_val = str(val)
+            
+            html += f'<td class="{clase}" style="{estilo_extra}">{display_val}</td>'
+        html += "</tr>"
+
+    html += "</tbody></table></div></div>"
+    st.write(html, unsafe_allow_html=True)
