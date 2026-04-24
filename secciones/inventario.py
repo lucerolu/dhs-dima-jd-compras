@@ -987,9 +987,8 @@ def vista_linea_detallada(df_prov):
         .pvt tbody tr:nth-child(even) td { background: #121212; }
         .pvt tbody tr:nth-child(odd)  td { background: #1a1a1a; }
         .pvt tbody tr:hover td { background: #1e2d40 !important; }
-        /* ── SCROLL ─────────────────────────────── */
         .pvt-wrap * { box-sizing: border-box; }
-        .pvt-scroll { max-height: 520px; overflow: auto;
+        .pvt-scroll { max-height: 750px; overflow: auto;
                       border: 1px solid #2a2a6e; border-radius: 4px; }
         .pvt-scroll::-webkit-scrollbar { width:6px; height:6px; }
         .pvt-scroll::-webkit-scrollbar-thumb { background:#444; border-radius:6px; }
@@ -1241,22 +1240,45 @@ def vista_jd_detallada(df_jd):
             df_periodo_jd.groupby(["sucursal_raw", "agr_constr_raw"], as_index=False)
             ["valor_inventario_mn"].sum()
         )
-        fig = px.bar(
-            df_suc_tipo,
-            x="valor_inventario_mn", y="sucursal_raw",
-            color="agr_constr_raw", barmode="group",
-            orientation="h",
-            color_discrete_map=COLORES_TIPO,
-            labels={
-                "valor_inventario_mn": "Valor (MN)",
-                "sucursal_raw": "Sucursal",
-                "agr_constr_raw": "Tipo",
-            },
+
+        # Colores: verde=Agrícola, amarillo=Construcción, blanco=NaN/otros
+        tipos_uniq = df_suc_tipo["agr_constr_raw"].fillna("Sin clasificar").unique()
+        COLOR_MAP = {}
+        for t in tipos_uniq:
+            tu = str(t).upper()
+            if "AGRI" in tu or "AGRÍ" in tu:
+                COLOR_MAP[t] = "#27ae60"
+            elif "CONST" in tu:
+                COLOR_MAP[t] = "#f1c40f"
+            elif "GOLF" in tu:
+                COLOR_MAP[t] = "#3498db"
+            else:
+                COLOR_MAP[t] = "#ecf0f1"
+        df_suc_tipo["agr_constr_raw"] = df_suc_tipo["agr_constr_raw"].fillna("Sin clasificar")
+
+        fig = go.Figure()
+        for tipo in df_suc_tipo["agr_constr_raw"].unique():
+            df_t = df_suc_tipo[df_suc_tipo["agr_constr_raw"] == tipo].sort_values("valor_inventario_mn")
+            fig.add_trace(go.Bar(
+                name=tipo,
+                x=df_t["valor_inventario_mn"],
+                y=df_t["sucursal_raw"],
+                orientation="h",
+                marker_color=COLOR_MAP.get(tipo, "#ecf0f1"),
+                marker_opacity=0.87,
+                text=df_t["valor_inventario_mn"].apply(lambda v: f"${v:,.0f}"),
+                textposition="outside",
+                cliponaxis=False,
+                hovertemplate="<b>%{y}</b><br>Tipo: %{fullData.name}<br>Valor: $%{x:,.2f}<extra></extra>",
+            ))
+
+        fig.update_xaxes(autorange=True)
+        _apply_dark(
+            fig,
+            height=max(340, df_suc_tipo["sucursal_raw"].nunique() * 55),
+            show_legend=True,
         )
-        fig.update_traces(
-            hovertemplate="<b>%{y}</b><br>Tipo: %{fullData.name}<br>Valor: $%{x:,.2f}<extra></extra>"
-        )
-        _apply_dark(fig, height=max(320, len(df_suc_tipo["sucursal_raw"].unique()) * 50))
+        fig.update_layout(barmode="group", hovermode="y unified")
         st.plotly_chart(fig, use_container_width=True)
 
     # ── B. TABLA MATRIZ ──────────────────────────────────
@@ -1311,10 +1333,9 @@ def mostrar(config=None): # Agregado None por si acaso
         st.warning("No se encontraron datos de inventario.")
         return
 
-    tab_suc, tab_cat, tab_prov, tab_jd, tab_linea = st.tabs([
+    tab_suc, tab_cat, tab_jd, tab_linea = st.tabs([
         "Vista por Sucursal",
         "Categoría",
-        "Proveedor",
         "Vista JD",
         "Línea",
     ])
@@ -1324,9 +1345,6 @@ def mostrar(config=None): # Agregado None por si acaso
     
     with tab_cat:
         vista_categoria_detallada(df_cat)
-    
-    with tab_prov:
-        vista_proveedor_detallada(df_prov)
     
     with tab_jd:
         vista_jd_detallada(df_jd)
