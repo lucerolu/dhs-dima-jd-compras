@@ -588,6 +588,106 @@ def mostrar_tabla_matriz_html(
     data_columns: list,
     header_right: list = None,
     footer_totals: dict = None,
+    max_height: int = 600,
+    color_mode: str = "global"  # "global", "row", "column"
+):
+    if df.empty:
+        return
+
+    header_right = header_right or []
+    
+    # --- 1. PRECALCULAR ESCALAS ---
+    valores_global = df[data_columns].values.flatten()
+    valores_global = valores_global[~pd.isna(valores_global)].astype(float)
+    g_min = valores_global.min() if valores_global.size > 0 else 0
+    g_max = valores_global.max() if valores_global.size > 0 else 1
+
+    col_scales = {}
+    if color_mode == "column":
+        for col in data_columns:
+            c_vals = df[col].values
+            c_vals = c_vals[~pd.isna(c_vals)].astype(float)
+            col_scales[col] = (c_vals.min(), c_vals.max()) if c_vals.size > 0 else (0, 1)
+
+    # --- 2. FUNCIÓN DE COLOR ---
+    def get_color(val, col_name=None, row_data=None):
+        if pd.isna(val): return "background-color: #ffffff; color: #0B083D;"
+        if color_mode == "row" and row_data is not None:
+            r_vals = row_data[data_columns].values.astype(float)
+            v_min, v_max = r_vals.min(), r_vals.max()
+        elif color_mode == "column" and col_name in col_scales:
+            v_min, v_max = col_scales[col_name]
+        else:
+            v_min, v_max = g_min, g_max
+
+        ratio = (float(val) - v_min) / (v_max - v_min) if v_max != v_min else 0
+        r = int(227 + ratio * (21 - 227))
+        g = int(242 + ratio * (101 - 242))
+        b = int(253 + ratio * (192 - 253))
+        text_color = "white" if ratio > 0.6 else "#0B083D"
+        return f"background-color: rgb({r},{g},{b}); color: {text_color};"
+
+    # --- 3. CONSTRUCCIÓN DEL HTML (CSS REFORZADO) ---
+    html = f"""
+    <style>
+        .table-outer-wrapper {{ width: 100%; background-color: transparent; padding-bottom: 2px; }}
+        .table-container {{ height: auto; max-height: {max_height}px; overflow: auto; position: relative; }}
+        table {{ border-collapse: separate; border-spacing: 0; width: 100%; font-family: 'Segoe UI', sans-serif; font-size: 0.85rem; background-color: white; border: 1px solid #f0f2f6; }}
+        
+        /* Headers Sticky */
+        thead th {{ position: sticky; top: 0; background-color: white !important; color: #0B083D; z-index: 10; border-bottom: 2px solid #e6e9ef; padding: 12px 10px; text-align: center; }}
+        thead th.pinned-header-left {{ position: sticky; left: 0; z-index: 21; border-right: 2px solid #e6e9ef !important; }}
+        thead th.pinned-header-right {{ position: sticky; right: 0; z-index: 21; border-left: 2px solid #e6e9ef !important; }}
+        
+        /* Celdas Body Sticky */
+        .sticky-left {{ position: sticky; left: 0; background-color: #0B083D !important; color: white !important; font-weight: bold; z-index: 5; border-right: 2px solid #e6e9ef !important; }}
+        .sticky-right {{ position: sticky; right: 0; background-color: #0B083D !important; color: white !important; font-weight: bold; z-index: 5; border-left: 2px solid #e6e9ef !important; }}
+        
+        /* FOOTER STICKY (La clave de la corrección) */
+        tfoot td {{ position: sticky; bottom: 0; background-color: #0B083D !important; color: white !important; font-weight: bold; z-index: 10; padding: 10px; border-top: 2px solid #e6e9ef; }}
+        tfoot td.sticky-left {{ z-index: 15 !important; left: 0; }}
+        tfoot td.sticky-right {{ z-index: 15 !important; right: 0; }}
+
+        td {{ padding: 8px 12px; border-bottom: 1px solid #f0f2f6; border-right: 1px solid #f0f2f6; white-space: nowrap; }}
+    </style>
+    <div class="table-outer-wrapper"><div class="table-container"><table>
+        <thead><tr>
+            {"".join([f'<th class="{"pinned-header-left" if c in header_left else "pinned-header-right" if c in header_right else ""}">{c}</th>' for c in df.columns])}
+        </tr></thead><tbody>
+    """
+
+    for _, row in df.iterrows():
+        html += "<tr>"
+        for col in df.columns:
+            val = row[col]
+            clase = "sticky-left" if col in header_left else "sticky-right" if col in header_right else ""
+            display_val = f"{val:,.2f}" if isinstance(val, (int, float)) else str(val)
+            if pd.isna(val): display_val = "-"
+            
+            estilo_celda = get_color(val, col, row) if col in data_columns else ("background-color: white;" if not clase else "")
+            html += f'<td class="{clase}" style="{estilo_celda}">{display_val}</td>'
+        html += "</tr>"
+
+    if footer_totals:
+        html += "<tfoot><tr>"
+        for col in df.columns:
+            # Aquí recuperamos tus clases originales para el footer
+            clase = "sticky-left" if col in header_left else "sticky-right" if col in header_right else ""
+            val = footer_totals.get(col, "")
+            display_val = f"{val:,.2f}" if isinstance(val, (int, float)) else str(val)
+            html += f'<td class="{clase}">{display_val}</td>'
+        html += "</tr></tfoot>"
+    
+    html += "</table></div></div>"
+    st.write(html, unsafe_allow_html=True)
+
+
+def mostrar_tabla_matriz_html_old(
+    df: pd.DataFrame,
+    header_left: list,
+    data_columns: list,
+    header_right: list = None,
+    footer_totals: dict = None,
     max_height: int = 600
 ):
     if df.empty:
@@ -759,9 +859,6 @@ def mostrar_tabla_matriz_html(
     html += "</table></div></div>"
     
     st.write(html, unsafe_allow_html=True)
-
-
-
 
 
 def mostrar_tabla_html_pro(

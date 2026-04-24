@@ -8,7 +8,7 @@ from utils.config import cargar_config
 from utils.api_utils import mostrar_fecha_actualizacion
 
 # Secciones
-from secciones import compras, ventas, clientes, vendedores, cancelaciones, linea
+from secciones import compras, ventas, clientes, vendedores, cancelaciones, linea, inventario
 
 # -----------------------------------------------------
 # CONFIGURACIÓN DE LA PÁGINA
@@ -89,6 +89,7 @@ if st.session_state["authentication_status"] is True:
                 "Cancelaciones",
                 "Clientes / Ubicación",
                 "Ventas por línea",
+                "Inventario"
             ]
         )
 
@@ -130,6 +131,9 @@ if st.session_state["authentication_status"] is True:
 
     elif opcion == "Ventas por línea":
         linea.mostrar(config)
+
+    elif opcion == "Inventario":
+        inventario.mostrar(config)
 
 elif st.session_state["authentication_status"] is False:
     st.error("❌ Usuario o contraseña incorrectos")
